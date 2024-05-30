@@ -13,21 +13,23 @@ module uart_rx#(
     input logic serial_rx,
     output logic [DATA_WIDTH-1:0] dout
 );
-    // FSM states
-  localparam IDLE_RX = 4'b0001;
-  localparam START_RX = 4'b0010;
-  localparam DATA_RX = 4'b0100;
-  localparam STOP_RX = 4'b1000;
-  logic [3:0] state;
+  enum int unsigned {RESET_RX, IDLE_RX,START_RX,DATA_RX,STOP_RX} state;
   // index of TX DATA
   int unsigned index;
   // clock cycle count 
   int unsigned cnt_clock;
+  logic [DATA_WIDTH-1:0] dout_reg;
   always_ff @(posedge clk)begin
     if (reset)begin
-        state <= IDLE_RX;
+        state <= RESET_RX;
     end else begin
         case (state)
+            RESET_RX: begin
+                dout_reg <= 0;
+                index <= 0;
+                cnt_clock <= 0;
+                state <= IDLE_RX;
+            end
             IDLE_RX: begin
                 //output
                 index <= 0;
@@ -45,20 +47,18 @@ module uart_rx#(
                 //next state
                 if (serial_rx == 1'b1)
                     state <= IDLE_RX;
-                else if (cnt_clock == (CLKS_PER_BIT-1)/2)begin
+                else if (cnt_clock == (((CLKS_PER_BIT-1)/2)-1))begin
                     state <= DATA_RX;
                     cnt_clock <= 0;
                 end else 
                     state <= START_RX;
-
             end
             DATA_RX: begin
-                dout[index] <= serial_rx;
-                //next state
                 if (cnt_clock < (CLKS_PER_BIT-1)) begin
                     cnt_clock <= cnt_clock + 1;
                 end else begin
                     cnt_clock <= 0;
+                    dout_reg[index] <= serial_rx;
                     if (index < (DATA_WIDTH-1)) begin
                         index <= index + 1;
                     end else begin
@@ -77,6 +77,7 @@ module uart_rx#(
                     state <= IDLE_RX;
             end
             default: begin
+                dout_reg <= 0;
                 index <= 0;
                 cnt_clock <= 0;
                 state <= IDLE_RX;
@@ -84,4 +85,5 @@ module uart_rx#(
         endcase
     end
   end
+  assign dout = dout_reg;
 endmodule

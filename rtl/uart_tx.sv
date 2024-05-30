@@ -16,11 +16,7 @@ module uart_tx#(
     output logic done
   );
   // FSM states
-  localparam IDLE_TX = 4'b0001;
-  localparam START_TX = 4'b0010;
-  localparam DATA_TX = 4'b0100;
-  localparam STOP_TX = 4'b1000;
-  logic [3:0] state;
+  enum int unsigned {IDLE_TX, START_TX,DATA_TX,STOP_TX} state;
   // index of TX DATA
   int unsigned index;
   // clock cycle count 
@@ -52,8 +48,10 @@ module uart_tx#(
                 //next state
                 if (cnt_clock < CLKS_PER_BIT-1)
                     state <= START_TX;
-                else 
+                else begin
+                    cnt_clock <= 0;
                     state <= DATA_TX;
+                end
             end
             DATA_TX: begin
                 //output
@@ -81,9 +79,10 @@ module uart_tx#(
                 //next state
                 if (cnt_clock < CLKS_PER_BIT-1)
                     state <= STOP_TX;
-                else 
+                else begin
                     state <= IDLE_TX;
                     done <= 1'b1;
+                end
             end
             default: begin
                 serial_tx <= 1'b1;
