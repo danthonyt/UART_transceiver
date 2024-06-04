@@ -31,6 +31,11 @@ logging.basicConfig(level=logging.NOTSET)
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
+# uart message and data bus formatting function
+def format_uart_bus(input_bus):
+    return f"{(input_bus>> 4 & 0x0F):04b}_{(input_bus>> 0 & 0x0F):04b}"
+def format_uart_msg(input_msg):
+    return f"{(input_msg >> 9 & 0x01):01b}_{(input_msg >> 5 & 0x0F):04b}_{(input_msg >> 1 & 0x0F):04b}_{(input_msg >> 0 & 0x01):01b}"
 
 # ### Reading a signal value
 # get_int() converts a bus to an integer
