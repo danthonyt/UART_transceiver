@@ -1,88 +1,124 @@
-import pyuvm
+from cocotb.triggers import Combine
 from pyuvm import *
-import cocotb
-from cocotb.triggers import ClockCycles
 import random
-from pathlib import Path
+import pyuvm
+import cocotb
 import sys 
+from pathlib import Path
 sys.path.insert(0, str(Path("..").resolve()))
-from uart_utils import uartBfm, uart_prediction, logger, format_uart_msg, format_uart_bus
+from uart_utils import uartBfm, uart_prediction, format_uart_msg, format_uart_bus
 
-# ## The BaseTester class
-# Common behavior across all tests
-class BaseTester(uvm_component):
-
+# Launching sequences from a virtual sequence
+# Calling a virtual sequence
+@pyuvm.test()
+class UartTest(uvm_test):
     def build_phase(self):
-        self.pp = uvm_put_port("pp",self)
+        self.env = UartEnv("env",self)
+
+    def end_of_elaboration_phase(self):
+        self.test_all = TestAllSeq.create("test_all")
 
     async def run_phase(self):
         self.raise_objection()
-        self.bfm = uartBfm()
-        '''
-        ops = list(Ops)
-        for op in ops:
-            input_tx_data,input_rx_data = self.get_operands()
-            await self.bfm.send_op(input_tx_data,input_rx_data,op)
-        '''
-        input_tx_data,input_rx_uart_payload = self.get_operands()
-        cmd_tuple = (input_tx_data,input_rx_uart_payload)
-        await self.pp.put(cmd_tuple)
-        await ClockCycles(signal=cocotb.top.clk,num_cycles=1000,rising=False)
+        await self.test_all.start()
         self.drop_objection()
+
+# A virtual sequence starts other sequences
+class TestAllSeq(uvm_sequence):
+
+    async def body(self):
+        seqr = ConfigDB().get(None,"","SEQR")
+        random_seq = RandomSeq("random")
+        max_seq = MaxSeq("max")
+        await random_seq.start(seqr)
+        await max_seq.start(seqr)
+
+# Running RandomSeq and MaxSeq in parallel
+class TestAllParallelSeq(uvm_sequence):
+
+    async def body(self):
+        seqr = ConfigDB().get(None,"","SEQR")
+        random_seq = RandomSeq("random")
+        max_seq = MaxSeq("max")
+        random_task = cocotb.start_soon(random_seq.start(seqr))
+        max_task = cocotb.start_soon(max_seq.start(seqr))
+        await Combine(random_task,max_task)
+
+# Defining the Uart Command as a sequence item
+class UartSeqItem(uvm_sequence_item):
+
+    def __init__(self,name,tx,rx):
+        super().__init__(name)
+        self.input_tx_data = tx
+        self.input_rx_uart_payload = rx
+        #self.op = Ops(op)
     
-    def get_operands(self):
-        raise RuntimeError("You must extend BaseTester and override get_operands().")
-        
-
-
-# ### The RandomTester
-# RandomTester overrides get_operands
-class RandomTester(BaseTester):
-    def get_operands(self):
-        return random.randint(0,255),((random.randint(0,255)<<1) & ~(1<<9)|(1))
+    def __eq__(self,other):
+        same = self.input_tx_data == other.input_tx_data and self.input_rx_uart_payload == other.input_rx_uart_payload
+        # and self.op == other.op
+        return same
     
+    def __str__(self):
+        return f"{self.get_name()}:T:{format_uart_bus(self.input_tx_data)}\
+            R:{format_uart_msg(self.input_rx_uart_payload)}"
+        '''
+        return f"{self.get_name()}:T:0x{format_uart_bus(self.T)}\
+            Op:{self.op.name}({self.op.value})R:{format_uart_msg(self.input_rx_uart_payload)}"
+        '''
 
-# ### The MaxTester
-# MaxTester overrides get_operands
-class MaxTester(BaseTester):
-    def get_operands(self):
-        return 0xFF,((0xFF<<1) & ~(1<<9)|(1))
+class BaseSeq(uvm_sequence):
+
+    async def body(self):
+        '''
+        for op in list(Ops):
+            cmd_tr = UartSeqItem("cmd_tr",0,0,op)
+            await self.start_item(cmd_tr)
+            self.set_operands(cmd_tr)
+            await self.finish_item(cmd_tr)
+        '''
+        cmd_tr = UartSeqItem("cmd_tr",0,0)
+        await self.start_item(cmd_tr)
+        self.set_operands(cmd_tr)
+        await self.finish_item(cmd_tr)
+
+    def set_operands(self,tr):
+        pass
 
 
+class RandomSeq(BaseSeq):
 
-# The driver refactored to work with sequences
+    def set_operands(self, tr):
+        tr.input_tx_data = random.randint(0,255)
+        tr.input_rx_uart_payload = (random.randint(0,255)<<1) & ~(1<<9)|(1)
+
+
+class MaxSeq(BaseSeq):
+
+    def set_operands(self, tr):
+        tr.input_tx_data = 0xFF
+        tr.input_rx_uart_payload = (0xFF<<1) & ~(1<<9)|(1)
+
+
 class Driver(uvm_driver):
-    
+    def build_phase(self):
+        self.ap = uvm_analysis_port("ap",self)
+
     def start_of_simulation_phase(self):
         self.bfm = uartBfm()
-
-    async def run_phase(self):
+    
+    async def launch_tb(self):
         await self.bfm.reset()
         self.bfm.start_tasks()
+
+    async def run_phase(self):
+        await self.launch_tb()
         while True:
             cmd = await self.seq_item_port.get_next_item()
             await self.bfm.send_op(cmd.input_tx_data,cmd.input_rx_uart_payload)
+            result = await self.bfm.get_result()
+            self.ap.write(result)
+            cmd.result = result
             self.seq_item_port.item_done()
-
-
-
-# The Monitor() class takes the method name 
-# as an instantiation argument
-class Monitor(uvm_monitor):
-    def __init__(self, name, parent, method_name):
-        super().__init__(name, parent)
-        self.method_name = method_name
-
-    def build_phase(self):
-        self.ap = uvm_analysis_port("ap",self)
-        self.bfm = uartBfm()
-        self.get_method = getattr(self.bfm,self.method_name)
-
-    async def run_phase(self):
-        while True:
-            datum = await self.get_method()
-            self.ap.write(datum)
-
 
 
 '''
@@ -107,77 +143,58 @@ class Coverage(uvm_analysis_export):
 '''
         
 
-# ## The Scoreboard class
-# ### Initialize the scoreboard
-# initializing the Scoreboard   
-# using uvm_tlm_analysis_fifo to provide 
-# multiple analysis_exports
-# and creating ports to read fifos
 class Scoreboard(uvm_component):
 
     def build_phase(self):
-        self.cmd_mon_fifo = uvm_tlm_analysis_fifo("cmd_mon_fifo",self)
-        self.result_mon_fifo = uvm_tlm_analysis_fifo("result_mon_fifo",self)
-        self.cmd_gp = uvm_get_port("cmd_gp",self)
-        self.result_gp = uvm_get_port("result_gp",self)
+        self.cmd_fifo = uvm_tlm_analysis_fifo("cmd_fifo",self)
+        self.result_fifo = uvm_tlm_analysis_fifo("result_fifo",self)
+        self.cmd_get_port = uvm_get_port("cmd_get_port",self)
+        self.result_get_port = uvm_get_port("result_get_port",self)
+        self.cmd_export = self.cmd_fifo.analysis_export
+        self.result_export = self.result_fifo.analysis_export
 
     def connect_phase(self):
-        self.cmd_gp.connect(self.cmd_mon_fifo.get_export)
-        self.result_gp.connect(self.result_mon_fifo.get_export)
-        self.cmd_export = self.cmd_mon_fifo.analysis_export
-        self.result_export = self.result_mon_fifo.analysis_export
+        self.cmd_get_port.connect(self.cmd_fifo.get_export)
+        self.result_get_port.connect(self.result_fifo.get_export)
         
-
-    # checking results after the run_phase
-
     def check_phase(self):
-        passed = True
-        while True:
-            got_next_cmd,cmd = self.cmd_gp.try_get()
-            if not got_next_cmd:
-                break
-            result_exists,actual = self.result_gp.try_get()
-            if not result_exists:
-                raise RuntimeError(f"Missing result for command {cmd}")
-            input_tx_data, input_rx_uart_payload = cmd
-            prediction = uart_prediction(input_tx_data,input_rx_uart_payload)
-            if actual == prediction:
-                self.logger.info(   f"PASSED: INPUT TX DATABUS : " + format_uart_bus(input_tx_data) + " "
-                                    f"INPUT RX MSG : " + format_uart_msg(input_rx_uart_payload) + " => "
-                                    f"OUTPUT TX MSG : " + format_uart_msg(actual[0]) + " "
-                                    f"OUTPUT RX DATABUS : " + format_uart_bus(actual[1]) + " "
-                                )
+        while self.result_get_port.can_get():
+            _, actual_result = self.result_get_port.try_get()
+            cmd_success, cmd = self.cmd_get_port.try_get()
+            if not cmd_success:
+                self.logger.critical(f"result {actual_result} had no command")
             else:
-                passed = False
-                self.logger.error(   f"FAILED: 8 bit input tx_din : {input_tx_data:08b}  10 bit input rx_msg : {input_rx_uart_payload:010b} "
-                                f'= 10 bit output tx_msg : {actual[0]:010b} - predicted : {prediction[0]:010b}'
-                                f' 8 bit output rx_dout : {actual[1]:08b} - predicted : {prediction[1]:08b}')
-            assert passed
-    '''
-    # define the data gathering tasks
-    # The scoreboard gets a command
-    async def get_cmd(self):
-        while True:
-            cmd = await self.bfm.get_cmd()
-            self.cmds.append(cmd)
+                (input_tx_data, input_rx_uart_payload) = cmd
+                predicted_result = uart_prediction(input_tx_data,input_rx_uart_payload)
+                if actual_result == predicted_result:
+                    self.logger.info(   f"PASSED: INPUT TX DATABUS : " + format_uart_bus(input_tx_data) + " "
+                                        f"INPUT RX MSG : " + format_uart_msg(input_rx_uart_payload) + " => "
+                                        f"OUTPUT TX MSG : " + format_uart_msg(actual_result[0]) + " "
+                                        f"OUTPUT RX DATABUS : " + format_uart_bus(actual_result[1]) + " "
+                                    )
+                else:
+                    self.logger.error(   f"FAILED: 8 bit input tx_din : {input_tx_data:08b}  10 bit input rx_msg : {input_rx_uart_payload:010b} "
+                                    f'= 10 bit output tx_msg : {actual_result[0]:010b} - predicted : {predicted_result[0]:010b}'
+                                    f' 8 bit output rx_dout : {actual_result[1]:08b} - predicted : {predicted_result[1]:08b}')
 
-    # The scoreboard gets a result
-    async def get_result(self):
-        while True:
-            result = await self.bfm.get_result()
-            self.results.append(result)
 
-    def start_of_simulation_phase(self):
+class Monitor(uvm_monitor):
+
+    def __init__(self, name, parent, method_name):
+        super().__init__(name, parent)
         self.bfm = uartBfm()
-        self.cmds = []
-        self.results = []
-        #self.cvg = set()
-        cocotb.start_soon(self.get_cmd())
-        cocotb.start_soon(self.get_result())
-    '''
-# all environments need the scoreboard
+        self.get_method = getattr(self.bfm,method_name)
 
-# using the factory to instantiate the BaseTester
+    def build_phase(self):
+        self.ap = uvm_analysis_port("ap",self)
+        
+    async def run_phase(self):
+        while True:
+            datum = await self.get_method()
+            self.logger.debug(f"MONITORED {datum}")
+            self.ap.write(datum)
+
+
 class UartEnv(uvm_env):
     
     def build_phase(self):
@@ -187,91 +204,16 @@ class UartEnv(uvm_env):
         self.scoreboard = Scoreboard("scoreboard",self)
         #self.coverage = Coverage("coverage",self)
         self.cmd_mon = Monitor("cmd_monitor",self,"get_cmd")
-        self.result_mon = Monitor("result_monitor",self,"get_result")
 
     def connect_phase(self):
         self.driver.seq_item_port.connect(self.seqr.seq_item_export)
         #self.cmd_mon.ap.connect(self.coverage.analysis_export)
         self.cmd_mon.ap.connect(self.scoreboard.cmd_export)
-        self.result_mon.ap.connect(self.scoreboard.result_export)
+        self.driver.ap.connect(self.scoreboard.result_export)
 
-    
-    def start_of_simulation_phase(self):
-        uartBfm().start_tasks()
-
-class BaseEnv(uvm_env):
-    """Instantiate the scoreboard"""
-
-    def build_phase(self):
-        self.scoreboard = Scoreboard("scoreboard",self)
-
-class RandomEnv(BaseEnv):
-    """Generate random operands"""
-
-
-    def build_phase(self):
-        super().build_phase()
-        self.tester = RandomTester("tester",self)
-
-
-class MaxEnv(BaseEnv):
-    """Generate maximum operands"""
-
-
-    def build_phase(self):
-        super().build_phase()
-        self.tester = MaxTester("tester",self)
-
-# The BaseTest class is an abstract class with no build_phase()
-'''
-class BaseTest(uvm_test):
-    async def run_phase(self):
-        self.raise_objection()
-        bfm = uartBfm()
-        scoreboard = Scoreboard()
-        await bfm.reset()
-        bfm.start_tasks()
-        scoreboard.start_tasks()     
-        await self.tester.execute()
-        passed = scoreboard.check_results()
-        assert passed
-        self.drop_objection()     
-'''
-
-# Defining the Uart Command as a sequence item
-
-
-class UartSeqItem(uvm_sequence_item):
-
-    def __init__(self,name,tx,rx):
-        super().__init__(name)
-        self.T = tx
-        self.R = rx
-        #self.op = Ops(op)
-    
-    def __eq__(self,other):
-        same = self.T == other.T and self.R == other.R
-        # and self.op == other.op
-        return same
-    def __str__(self):
-        return f"{self.get_name()}:T:{format_uart_bus(self.T)}\
-            R:{format_uart_msg(self.R)}"
-        '''
-        return f"{self.get_name()}:T:0x{format_uart_bus(self.T)}\
-            Op:{self.op.name}({self.op.value})R:{format_uart_msg(self.R)}"
-        '''
-
-# Instantiating the right environment in each test
-@pyuvm.test()
-class RandomTest(uvm_test):
-    """Run with random operands"""
-    def build_phase(self):
-        uvm_factory().set_type_override_by_type(BaseTester,RandomTester)
-        self.env = UartEnv("env",self)
 
 @pyuvm.test()
-class MaxTest(uvm_test):
-    """Run with max operands"""
-    def build_phase(self):
-        uvm_factory().set_type_override_by_type(BaseTester,MaxTester)
-        self.env = UartEnv("env",self)
+class ParallelTest(UartTest):
+    def end_of_elaboration_phase(self):
+        uvm_factory().set_type_override_by_type(TestAllSeq,TestAllParallelSeq)
+        return super().end_of_elaboration_phase()

@@ -1,9 +1,10 @@
 import cocotb
 from cocotb.triggers import FallingEdge,ClockCycles
 from cocotb.queue import QueueEmpty, Queue
-#import enum
 import logging
 import pyuvm
+
+
 
 
 # #### The uart_prediction function
