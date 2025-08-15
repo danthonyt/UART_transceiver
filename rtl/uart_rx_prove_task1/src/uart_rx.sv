@@ -29,7 +29,6 @@ module uart_rx #(
   logic index_cntr_en;
   logic cycle_cntr_en;
   logic shift_en;
-  
   always_comb begin
     index_cntr_en = 0;
     cycle_cntr_en = 0;
@@ -121,20 +120,19 @@ module uart_rx #(
   /******************************************/
 `ifdef FORMAL
   initial assume (RSTN == 0);
-  int f_cycle_count;
+  int f_cycle_count
   initial f_cycle_count = 0;
   always_ff @(posedge CLK) begin
-    f_cycle_count <= f_cycle_count + 1;
-    if (f_cycle_count >= 1) assume property (@(posedge CLK) disable iff (!RSTN) ($stable(SERIAL_RX)));
-    if (f_cycle_count >= 3) f_cycle_count <= 0;
+    if (f_cycle_count >= 1) assume $stable(SERIAL_RX);
+    if (f_cycle_count >= 3) f_cycle_count <= 0
   end
   // the serial input should hold stable for the expected baud rate
   // assume baud rate requires 4 clocks per bit
-  successful_receive:
+  assume property(@(posedge CLK) disable iff (!RSTN) 
+  ($stable(SERIAL_RX)[*4]));
   cover property (@(posedge CLK) disable iff (!RSTN) 
-  (DOUT == 8'hda ));
-  idle_back_to_idle:
+  (DOUT == 8'ha ));
   cover property (@(posedge CLK) disable iff (!RSTN) 
-  (state == IDLE_RX) ##[1:$] (state == START_RX)  ##[1:$] (state == DATA_RX) ##[1:$] (state == STOP_RX) ##[1:$] (state == IDLE_RX));
+  (state == IDLE_RX) ##[1:$] (state == START_RX)  ##[1:$] (state == DATA_RX) ##[1:$] (state == STOP_RX) );
 `endif
 endmodule

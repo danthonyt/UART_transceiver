@@ -5,5 +5,6 @@
 !*.py
 !*.sv
 !Makefile
+!*.sby
 # even if they are in subdirectories
 !*/

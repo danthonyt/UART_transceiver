@@ -29,7 +29,6 @@ module uart_rx #(
   logic index_cntr_en;
   logic cycle_cntr_en;
   logic shift_en;
-  
   always_comb begin
     index_cntr_en = 0;
     cycle_cntr_en = 0;
@@ -130,11 +129,9 @@ module uart_rx #(
   end
   // the serial input should hold stable for the expected baud rate
   // assume baud rate requires 4 clocks per bit
-  successful_receive:
   cover property (@(posedge CLK) disable iff (!RSTN) 
   (DOUT == 8'hda ));
-  idle_back_to_idle:
   cover property (@(posedge CLK) disable iff (!RSTN) 
-  (state == IDLE_RX) ##[1:$] (state == START_RX)  ##[1:$] (state == DATA_RX) ##[1:$] (state == STOP_RX) ##[1:$] (state == IDLE_RX));
+  (state == IDLE_RX) ##[1:$] (state == START_RX)  ##[1:$] (state == DATA_RX) ##[1:$] (state == STOP_RX) );
 `endif
 endmodule
