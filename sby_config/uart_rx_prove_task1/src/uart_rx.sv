@@ -9,9 +9,10 @@ module uart_rx #(
 ) (
     input logic CLK_I,
     input logic RST_I,
-    input logic SERIAL_RX_I,
-    output logic BUSY_O,
-    output logic [DATA_WIDTH-1:0] DATA_O
+    input logic RX_I, // serial rx input
+    output logic BUSY_O, // uart rx in progress
+    output logic [DATA_WIDTH-1:0] DATA_O, // Shifted byte from rx input
+    output logic FRAME_ERR_O // framing error when stop bit is not high
 );
   typedef enum {
     IDLE_RX,
@@ -27,18 +28,21 @@ module uart_rx #(
   // index of TX DATA
   logic [$clog2(DATA_WIDTH)-1:0] index;
   // clock cycle count 
-  logic [$clog2(CLKS_PER_BIT)-1:0] cycle_cnt;
+  logic [$clog2(CLKS_PER_BIT)-1:0] baud_cnt;
   logic [DATA_WIDTH-1:0] shift_reg;
   logic baud_tick;
   logic baud_tick_half;
   logic index_done;
+  logic [DATA_WIDTH-1:0] data_o;
+  logic frame_err;
+
 
   always_ff @(posedge CLK_I) begin
     if (RST_I) begin
       serial_rx_q  <= 1;
       serial_rx_qq <= 1;
     end else begin
-      serial_rx_q  <= SERIAL_RX_I;
+      serial_rx_q  <= RX_I;
       serial_rx_qq <= serial_rx_q;
     end
   end
@@ -47,63 +51,75 @@ module uart_rx #(
     if (RST_I) begin
       state <= IDLE_RX;
       busy <= 0;
-      cycle_cnt <= 0;
+      baud_cnt <= 0;
       index <= 0;
       shift_reg <= 0;
+      data_o <= 0;
+      frame_err <= 0;
     end else begin
+      busy <= 1;
+      baud_cnt <= 0;
+      index <= 0;
+      shift_reg <= 0;
+      data_o <= 0;
+      frame_err <= 0;
       case (state)
         IDLE_RX: begin
-          cycle_cnt <= 0;
           busy <= 0;
-          if (serial_rx_qq == 1'b0) begin
+          if (!serial_rx_qq) begin
+            baud_cnt <= baud_cnt + 1;
             state <= START_RX;
-            cycle_cnt <= 0;
             busy  <= 1;
           end
         end
         START_RX: begin
-          cycle_cnt <= cycle_cnt + 1;
-          if (serial_rx_qq == 1'b1) begin
+          baud_cnt <= baud_cnt + 1;
+          // false start - return to idle
+          if (serial_rx_qq) begin
             state <= IDLE_RX;
-            cycle_cnt <= 0;
-            busy <= 0;
+            baud_cnt <= 0;
             // find the middle of the bit
           end else if (baud_tick_half) begin
             state <= DATA_RX;
             index <= 0;
-            cycle_cnt <= 0;
+            baud_cnt <= 0;
           end
         end
         DATA_RX: begin
-          cycle_cnt <= cycle_cnt + 1;
+          baud_cnt <= baud_cnt + 1;
+          index <= index;
+          shift_reg <= shift_reg;
           if (baud_tick) begin
-            cycle_cnt <= 0;
+            baud_cnt <= 0;
             shift_reg <= {serial_rx_qq, shift_reg[7:1]};
             index <= index + 1;
             if (index_done) begin
-              cycle_cnt <= 0;
               index <= 0;
               state <= STOP_RX;
             end
           end
         end
         STOP_RX: begin
-          cycle_cnt <= cycle_cnt + 1;
+          baud_cnt <= baud_cnt + 1;
+          shift_reg <= shift_reg;
           if (baud_tick) begin
             state <= IDLE_RX;
-            busy  <= 0;
-            cycle_cnt <= 0;
+            baud_cnt <= 0;
+            data_o <= shift_reg;
+            busy <= 0;
+            frame_err <= serial_rx_qq ? 0 : 1;
           end
         end
       endcase
     end
   end
 
-  assign baud_tick = (cycle_cnt == (CLKS_PER_BIT - 1));
-  assign baud_tick_half = (cycle_cnt == (((CLKS_PER_BIT - 1) / 2) - 1));
+  assign baud_tick = (baud_cnt == (CLKS_PER_BIT - 1));
+  assign baud_tick_half = (baud_cnt == ((CLKS_PER_BIT / 2) - 1));
   assign index_done = (index >= DATA_WIDTH - 1);
+  assign DATA_O = data_o;
   assign BUSY_O = busy;
-  assign DATA_O = shift_reg;
+  assign FRAME_ERR_O = frame_err;
 
   /******************************************/
   //
@@ -111,35 +127,85 @@ module uart_rx #(
   //
   /******************************************/
 `ifdef FORMAL
-  initial assume (RST_I == 1);
+  default clocking @(posedge CLK_I);
+  endclocking
 
-  // Assume clk is your simulation clock
-  logic [$clog2(CLKS_PER_BIT)-1:0] stable_cntr;
+  initial assume (RST_I);
 
-  always_ff @(posedge CLK_I) begin
-    if (RST_I)  // tx_q is previous value
-      stable_cntr <= 0;
-    else if (stable_cntr >= CLKS_PER_BIT-1)
-      stable_cntr <= 0;
-    else
-      stable_cntr <= stable_cntr + 1;
-  end
+  property LIMIT_COUNT;
+    disable iff (RST_I) baud_cnt <= (CLKS_PER_BIT - 1);
+  endproperty
 
-  // SVA: allow change only if stable for >= 4 cycles
-  assume property (@(posedge CLK_I) disable iff (RST_I) $changed(
-      SERIAL_RX_I
-  ) |-> (stable_cntr == 0));
-
-  assert property (@(posedge CLK_I) disable iff (RST_I) cycle_cnt <= (CLKS_PER_BIT - 1));
+  property RESET_STATE;
+    (RST_I |-> ##1 (state == IDLE_RX));
+  endproperty
 
 
-  // the serial input should hold stable for the expected baud rate
-  // assume baud rate requires 4 clocks per bit
-  cover property (@(posedge CLK_I) disable iff (RST_I) (DATA_O == 8'hda));
-  cover property (@(posedge CLK_I) disable iff (RST_I) 
-  (state == IDLE_RX) ##[1:$] (state == START_RX)  ##[1:$] (state == DATA_RX) ##[1:$] (state == STOP_RX) ##[1:$] (state == IDLE_RX));
+  property VALID_BUSY;
+    disable iff (RST_I)
+    (!BUSY_O |-> state == IDLE_RX);
+  endproperty
 
-  assert property (@(posedge CLK_I) (!RST_I && $past(RST_I) |-> (state == IDLE_RX)));
+  property VALID_STATE;
+    disable iff (RST_I)
+    (state <= STOP_RX);
+  endproperty
+
+
+  property RX_TRANSACTION;
+    disable iff (RST_I) 
+    (state == IDLE_RX)
+    ##[1:$] (state == START_RX) 
+    ##[1:$] (state == DATA_RX) 
+    ##[1:$] (state == STOP_RX) 
+    ##[1:$] (state == IDLE_RX);
+  endproperty
+
+  assert property (VALID_STATE);
+  assert property (VALID_BUSY);
+  assert property (LIMIT_COUNT);
+  cover property (RX_TRANSACTION);
+  assert property (RESET_STATE);
+
+  /*
+  // sequence - error free receive
+  start bit - 0 held for N bits - check every clk
+  data bit  - x held for N bits * 8
+  stop bit  - 1 held for N bits 
+  */
+  sequence ERR_FREE_RECEIVE(CLKS, logic [7:0] DATA_BYTE);
+  state == IDLE_RX ##0
+  !serial_rx_qq [*CLKS] ##1 
+  (serial_rx_qq == DATA_BYTE[0])[*CLKS] ##1
+  (serial_rx_qq == DATA_BYTE[1])[*CLKS] ##1
+  (serial_rx_qq == DATA_BYTE[2])[*CLKS] ##1
+  (serial_rx_qq == DATA_BYTE[3])[*CLKS] ##1
+  (serial_rx_qq == DATA_BYTE[4])[*CLKS] ##1
+  (serial_rx_qq == DATA_BYTE[5])[*CLKS] ##1
+  (serial_rx_qq == DATA_BYTE[6])[*CLKS] ##1
+  (serial_rx_qq == DATA_BYTE[7])[*CLKS] ##1
+  serial_rx_qq[*CLKS/2] ##1
+  $fell(BUSY_O) && !frame_err && (DATA_O == DATA_BYTE);
+  endsequence
+
+  sequence ERR_RECEIVE(CLKS, logic [7:0] DATA_BYTE);
+  state == IDLE_RX ##0
+  !serial_rx_qq [*CLKS] ##1 
+  (serial_rx_qq == DATA_BYTE[0])[*CLKS] ##1
+  (serial_rx_qq == DATA_BYTE[1])[*CLKS] ##1
+  (serial_rx_qq == DATA_BYTE[2])[*CLKS] ##1
+  (serial_rx_qq == DATA_BYTE[3])[*CLKS] ##1
+  (serial_rx_qq == DATA_BYTE[4])[*CLKS] ##1
+  (serial_rx_qq == DATA_BYTE[5])[*CLKS] ##1
+  (serial_rx_qq == DATA_BYTE[6])[*CLKS] ##1
+  (serial_rx_qq == DATA_BYTE[7])[*CLKS] ##1
+  !serial_rx_qq[*CLKS/2] ##1
+  $fell(BUSY_O) && frame_err && (DATA_O == DATA_BYTE);
+  endsequence
+  error_free_receive:
+  cover property (disable iff (RST_I) ERR_FREE_RECEIVE(CLKS_PER_BIT, 8'had));
+  error_receive:
+  cover property (disable iff (RST_I) ERR_RECEIVE(CLKS_PER_BIT, 8'had));
 `endif
 endmodule
 
