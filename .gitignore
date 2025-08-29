@@ -1,5 +1,8 @@
-# Ignore everything recursively in sby_config
+# Ignore all files recursively in sby_config
 sby_config/**
 
-# Except .sby files in the top-level sby_config folder
+
+# Only include top-level .sby files
 !sby_config/*.sby
+
+
