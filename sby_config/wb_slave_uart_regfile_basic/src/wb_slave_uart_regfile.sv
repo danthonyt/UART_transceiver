@@ -233,7 +233,7 @@ module wb_slave_uart_regfile #(
 
   // covers:
   // write to non-full tx fifo
-  assert property (state == IDLE && WB_CYC_I && WB_STB_I && tx_fifo_wr && !TX_FIFO_FULL_I##1 
+  cover property (state == IDLE && WB_CYC_I && WB_STB_I && tx_fifo_wr && !TX_FIFO_FULL_I##1 
    state == IDLE && WB_ACK_O && !WB_ERR_O);
    // write to full tx fifo - error 
    cover property (state == IDLE && WB_CYC_I && WB_STB_I && tx_fifo_wr && TX_FIFO_FULL_I ##1 

@@ -1,4 +1,4 @@
-module wb_slave_uart_regfile #(
+module uart_regfile #(
     DATA_WIDTH = 8
 ) (
     input logic CLK_I,
@@ -127,6 +127,7 @@ module wb_slave_uart_regfile #(
   always_comb begin
     wb_ack_nxt = 0;
     wb_dat_o_nxt = 0;
+    wb_err_nxt = 0;
     reg_wen_nxt = 0;
     reg_wdata_nxt = 0;
     tx_fifo_wen_nxt = 0;

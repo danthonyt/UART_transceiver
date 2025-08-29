@@ -1,0 +1,35 @@
+[tasks]
+basic bmc
+cover_task1 cover
+prove_task1 prove
+
+
+[options]
+bmc: 
+mode bmc
+depth 30
+cover:
+mode cover
+depth 30
+prove:
+mode prove
+--
+
+[engines]
+smtbmc boolector
+
+[script]
+read -formal wb_uart.sv
+read -sv uart_regfile.sv
+read -sv fifo.sv
+read -sv uart_tx.sv
+read -sv uart_rx.sv
+hierarchy -check -top wb_uart
+prep -top wb_uart
+
+[files]
+wb_uart.sv
+uart_rx.sv
+uart_tx.sv
+uart_regfile.sv
+fifo.sv

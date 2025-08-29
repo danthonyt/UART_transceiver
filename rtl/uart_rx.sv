@@ -11,7 +11,8 @@ module uart_rx #(
     input logic RST_I,
     input logic RX_I, // serial rx input
     output logic BUSY_O, // uart rx in progress
-    output logic [DATA_WIDTH-1:0] DATA_O, // Shifted byte from rx input
+    output logic [DATA_WIDTH-1:0] RX_BYTE_O, // Shifted byte from rx input
+    output logic RX_BYTE_VALID_O,
     output logic FRAME_ERR_O // framing error when stop bit is not high
 );
   typedef enum {
@@ -25,6 +26,7 @@ module uart_rx #(
   logic serial_rx_q;
   logic serial_rx_qq;
   logic busy;
+  logic rx_byte_valid;
   // index of TX DATA
   logic [$clog2(DATA_WIDTH)-1:0] index;
   // clock cycle count 
@@ -56,6 +58,7 @@ module uart_rx #(
       shift_reg <= 0;
       data_o <= 0;
       frame_err <= 0;
+      rx_byte_valid <= 0;
     end else begin
       busy <= 1;
       baud_cnt <= 0;
@@ -63,6 +66,7 @@ module uart_rx #(
       shift_reg <= 0;
       data_o <= 0;
       frame_err <= 0;
+      rx_byte_valid <= 0;
       case (state)
         IDLE_RX: begin
           busy <= 0;
@@ -108,6 +112,7 @@ module uart_rx #(
             data_o <= shift_reg;
             busy <= 0;
             frame_err <= serial_rx_qq ? 0 : 1;
+            rx_byte_valid <= 1;
           end
         end
       endcase
@@ -117,7 +122,8 @@ module uart_rx #(
   assign baud_tick = (baud_cnt == (CLKS_PER_BIT - 1));
   assign baud_tick_half = (baud_cnt == ((CLKS_PER_BIT / 2) - 1));
   assign index_done = (index >= DATA_WIDTH - 1);
-  assign DATA_O = data_o;
+  assign RX_BYTE_O = data_o;
+  assign RX_BYTE_VALID_O = rx_byte_valid;
   assign BUSY_O = busy;
   assign FRAME_ERR_O = frame_err;
 
@@ -185,7 +191,7 @@ module uart_rx #(
   (serial_rx_qq == DATA_BYTE[6])[*CLKS] ##1
   (serial_rx_qq == DATA_BYTE[7])[*CLKS] ##1
   serial_rx_qq[*CLKS/2] ##1
-  $fell(BUSY_O) && !frame_err && (DATA_O == DATA_BYTE);
+  $fell(BUSY_O) && !frame_err && (RX_BYTE_O == DATA_BYTE);
   endsequence
 
   sequence ERR_RECEIVE(CLKS, logic [7:0] DATA_BYTE);
@@ -200,7 +206,7 @@ module uart_rx #(
   (serial_rx_qq == DATA_BYTE[6])[*CLKS] ##1
   (serial_rx_qq == DATA_BYTE[7])[*CLKS] ##1
   !serial_rx_qq[*CLKS/2] ##1
-  $fell(BUSY_O) && frame_err && (DATA_O == DATA_BYTE);
+  $fell(BUSY_O) && frame_err && (RX_BYTE_O == DATA_BYTE);
   endsequence
   error_free_receive:
   cover property (disable iff (RST_I) ERR_FREE_RECEIVE(CLKS_PER_BIT, 8'had));

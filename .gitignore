@@ -1,10 +1,5 @@
-# ignore everything
-*
-# but not these files
-!.gitignore
-!*.py
-!*.sv
-!Makefile
-!*.sby
-# even if they are in subdirectories
-!*/
+# Ignore everything recursively in sby_config
+sby_config/**
+
+# Except .sby files in the top-level sby_config folder
+!sby_config/*.sby

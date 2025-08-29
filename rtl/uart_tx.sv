@@ -10,7 +10,7 @@ module uart_tx #(
     input logic CLK_I,
     input logic RST_I,
     input logic START_I,
-    input logic [DATA_WIDTH-1:0] DATA_I,
+    input logic [DATA_WIDTH-1:0] TX_BYTE_I,
     output logic TX_O,
     output logic BUSY_O  // tx uart is busy
 );
@@ -101,7 +101,7 @@ module uart_tx #(
         if (START_I) begin
           tx_nxt = 0;
           busy_nxt  = 1;
-          din_q_nxt = DATA_I;
+          din_q_nxt = TX_BYTE_I;
         end
       end
       START_TX: begin
@@ -161,7 +161,7 @@ module uart_tx #(
 
   initial assume (RST_I == 1);
   always_comb begin
-    assume (DATA_I == f_tx_data);
+    assume (TX_BYTE_I == f_tx_data);
     assume (START_I == f_tx_start);
     if (busy) assume (!f_tx_start);
   end
@@ -194,7 +194,7 @@ module uart_tx #(
   endproperty
 
   sequence TRANSMIT_TRANSACTION(CLKS, logic [7:0] DATA_BYTE);
-  !busy && START_I && DATA_I == DATA_BYTE ##1
+  !busy && START_I && TX_BYTE_I == DATA_BYTE ##1
   !TX_O [*CLKS] ##1 
   (TX_O == DATA_BYTE[0])[*CLKS] ##1
   (TX_O == DATA_BYTE[1])[*CLKS] ##1
