@@ -23,12 +23,14 @@ read -formal wb_uart.sv
 read -sv uart_regfile.sv
 read -sv fifo.sv
 read -sv uart_tx.sv
+read -sv pulse_generator.sv
 read -sv uart_rx.sv
 hierarchy -check -top wb_uart
 prep -top wb_uart
 
 [files]
 wb_uart.sv
+pulse_generator.sv
 uart_rx.sv
 uart_tx.sv
 uart_regfile.sv

@@ -7,13 +7,13 @@ module uart_rx #(
     // baud rate
     parameter CLKS_PER_BIT = 87
 ) (
-    input logic CLK_I,
-    input logic RST_I,
-    input logic RX_I, // serial rx input
-    output logic BUSY_O, // uart rx in progress
-    output logic [DATA_WIDTH-1:0] RX_BYTE_O, // Shifted byte from rx input
-    output logic RX_BYTE_VALID_O,
-    output logic FRAME_ERR_O // framing error when stop bit is not high
+    input logic clk_i,
+    input logic rst_i,
+    input logic rx_i, // serial rx input
+    output logic busy_o, // uart rx in progress
+    output logic [DATA_WIDTH-1:0] rx_byte_o, // Shifted byte from rx input
+    output logic rx_byte_valid_o,
+    output logic frame_err_o // framing error when stop bit is not high
 );
   typedef enum {
     IDLE_RX,
@@ -39,18 +39,18 @@ module uart_rx #(
   logic frame_err;
 
 
-  always_ff @(posedge CLK_I) begin
-    if (RST_I) begin
+  always_ff @(posedge clk_i) begin
+    if (rst_i) begin
       serial_rx_q  <= 1;
       serial_rx_qq <= 1;
     end else begin
-      serial_rx_q  <= RX_I;
+      serial_rx_q  <= rx_i;
       serial_rx_qq <= serial_rx_q;
     end
   end
 
-  always_ff @(posedge CLK_I) begin
-    if (RST_I) begin
+  always_ff @(posedge clk_i) begin
+    if (rst_i) begin
       state <= IDLE_RX;
       busy <= 0;
       baud_cnt <= 0;
@@ -122,10 +122,10 @@ module uart_rx #(
   assign baud_tick = (baud_cnt == (CLKS_PER_BIT - 1));
   assign baud_tick_half = (baud_cnt == ((CLKS_PER_BIT / 2) - 1));
   assign index_done = (index >= DATA_WIDTH - 1);
-  assign RX_BYTE_O = data_o;
-  assign RX_BYTE_VALID_O = rx_byte_valid;
-  assign BUSY_O = busy;
-  assign FRAME_ERR_O = frame_err;
+  assign rx_byte_o = data_o;
+  assign rx_byte_valid_o = rx_byte_valid;
+  assign busy_o = busy;
+  assign frame_err_o = frame_err;
 
   /******************************************/
   //
@@ -133,33 +133,33 @@ module uart_rx #(
   //
   /******************************************/
 `ifdef FORMAL
-  default clocking @(posedge CLK_I);
+  default clocking @(posedge clk_i);
   endclocking
 
-  initial assume (RST_I);
+  initial assume (rst_i);
 
   property LIMIT_COUNT;
-    disable iff (RST_I) baud_cnt <= (CLKS_PER_BIT - 1);
+    disable iff (rst_i) baud_cnt <= (CLKS_PER_BIT - 1);
   endproperty
 
   property RESET_STATE;
-    (RST_I |-> ##1 (state == IDLE_RX));
+    (rst_i |-> ##1 (state == IDLE_RX));
   endproperty
 
 
   property VALID_BUSY;
-    disable iff (RST_I)
-    (!BUSY_O |-> state == IDLE_RX);
+    disable iff (rst_i)
+    (!busy_o |-> state == IDLE_RX);
   endproperty
 
   property VALID_STATE;
-    disable iff (RST_I)
+    disable iff (rst_i)
     (state <= STOP_RX);
   endproperty
 
 
   property RX_TRANSACTION;
-    disable iff (RST_I) 
+    disable iff (rst_i) 
     (state == IDLE_RX)
     ##[1:$] (state == START_RX) 
     ##[1:$] (state == DATA_RX) 
@@ -191,7 +191,7 @@ module uart_rx #(
   (serial_rx_qq == DATA_BYTE[6])[*CLKS] ##1
   (serial_rx_qq == DATA_BYTE[7])[*CLKS] ##1
   serial_rx_qq[*CLKS/2] ##1
-  $fell(BUSY_O) && !frame_err && (RX_BYTE_O == DATA_BYTE);
+  $fell(busy_o) && !frame_err && (rx_byte_o == DATA_BYTE);
   endsequence
 
   sequence ERR_RECEIVE(CLKS, logic [7:0] DATA_BYTE);
@@ -206,12 +206,12 @@ module uart_rx #(
   (serial_rx_qq == DATA_BYTE[6])[*CLKS] ##1
   (serial_rx_qq == DATA_BYTE[7])[*CLKS] ##1
   !serial_rx_qq[*CLKS/2] ##1
-  $fell(BUSY_O) && frame_err && (RX_BYTE_O == DATA_BYTE);
+  $fell(busy_o) && frame_err && (rx_byte_o == DATA_BYTE);
   endsequence
   error_free_receive:
-  cover property (disable iff (RST_I) ERR_FREE_RECEIVE(CLKS_PER_BIT, 8'had));
+  cover property (disable iff (rst_i) ERR_FREE_RECEIVE(CLKS_PER_BIT, 8'had));
   error_receive:
-  cover property (disable iff (RST_I) ERR_RECEIVE(CLKS_PER_BIT, 8'had));
+  cover property (disable iff (rst_i) ERR_RECEIVE(CLKS_PER_BIT, 8'had));
 `endif
 endmodule
 

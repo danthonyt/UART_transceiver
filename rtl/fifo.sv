@@ -2,14 +2,14 @@ module fifo #(
     parameter DEPTH = 16,
     DWIDTH = 8
 ) (
-    input  logic              RST_I,    // active high reset
-    input  logic              CLK_I,    // clk
-    input  logic              WEN_I,    // write enable
-    input  logic              REN_I,    // read enable
-    input  logic [DWIDTH-1:0] DATA_I,   // Data written into FIFO
-    output logic [DWIDTH-1:0] DATA_O,   // Data read from FIFO
-    output logic              EMPTY_O,  // FIFO is empty when high
-    output logic              FULL_O    // FIFO is full when high
+    input  logic              rst_i,    // active high reset
+    input  logic              clk_i,    // clk
+    input  logic              wen_i,    // write enable
+    input  logic              ren_i,    // read enable
+    input  logic [DWIDTH-1:0] wdata_i,   // Data written into FIFO
+    output logic [DWIDTH-1:0] rdata_o,   // Data read from FIFO
+    output logic              empty_o,  // FIFO is empty when high
+    output logic              full_o    // FIFO is full when high
 );
 
 
@@ -18,28 +18,29 @@ module fifo #(
 
   logic [DWIDTH-1 : 0]    fifo[DEPTH];
 
-  always @(posedge CLK_I) begin
-    if (RST_I) begin
+  always @(posedge clk_i) begin
+    if (rst_i) begin
       wptr <= 0;
     end else begin
-      if (WEN_I & !FULL_O) begin
-        fifo[wptr] <= DATA_I;
-        wptr <= wptr + 1;
+      if (wen_i & !full_o) begin
+        fifo[wptr] <= wdata_i;
+        wptr <= (wptr + 1) % DEPTH;
       end
     end
   end
 
-  always @(posedge CLK_I) begin
-    if (RST_I) begin
+  always @(posedge clk_i) begin
+    if (rst_i) begin
       rptr <= 0;
+      rdata_o <= 0;
     end else begin
-      if (REN_I & !EMPTY_O) begin
-        DATA_O <= fifo[rptr];
-        rptr   <= rptr + 1;
+      if (ren_i & !empty_o) begin
+        rdata_o <= fifo[rptr];
+        rptr   <= (rptr + 1) % DEPTH;
       end
     end
   end
 
-  assign FULL_O  = (wptr + 1) == rptr;
-  assign EMPTY_O = wptr == rptr;
+  assign full_o  = ((wptr + 1) % DEPTH) == rptr;
+  assign empty_o = wptr == rptr;
 endmodule

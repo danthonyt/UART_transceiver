@@ -7,12 +7,12 @@ module uart_tx #(
     // baud rate
     parameter CLKS_PER_BIT = 87
 ) (
-    input logic CLK_I,
-    input logic RST_I,
-    input logic START_I,
-    input logic [DATA_WIDTH-1:0] TX_BYTE_I,
-    output logic TX_O,
-    output logic BUSY_O  // tx uart is busy
+    input logic clk_i,
+    input logic rst_i,
+    input logic start_i,
+    input logic [DATA_WIDTH-1:0] tx_byte_i,
+    output logic tx_o,
+    output logic busy_o  // tx uart is busy
 );
   // FSM states
   typedef enum {
@@ -23,8 +23,6 @@ module uart_tx #(
   } state_t;
 
   state_t state, nxt_state;
-
-  logic busy, busy_nxt;
   logic tx, tx_nxt;
   // index of TX DATA
   logic [$clog2(DATA_WIDTH)-1:0] index, index_nxt;
@@ -32,11 +30,11 @@ module uart_tx #(
   logic [$clog2(CLKS_PER_BIT)-1:0] baud_cnt, baud_cnt_nxt;
   logic baud_tick;
   logic index_last;
-  logic [DATA_WIDTH-1:0] din_q, din_q_nxt;
+  logic [DATA_WIDTH-1:0] tx_byte_q, tx_byte_q_nxt;
 
   // state register
-  always_ff @(posedge CLK_I) begin
-    if (RST_I) begin
+  always_ff @(posedge clk_i) begin
+    if (rst_i) begin
       state <= IDLE_TX;
     end else begin
       state <= nxt_state;
@@ -44,17 +42,15 @@ module uart_tx #(
   end
 
   // outputs register
-  always_ff @(posedge CLK_I) begin
-    if (RST_I) begin
-      busy <= 0;
+  always_ff @(posedge clk_i) begin
+    if (rst_i) begin
       tx <= 1;
-      din_q <= 0;
+      tx_byte_q <= 0;
       index <= 0;
       baud_cnt <= 0;
     end else begin
-      busy <= busy_nxt;
       tx <= tx_nxt;
-      din_q <= din_q_nxt;
+      tx_byte_q <= tx_byte_q_nxt;
       index <= index_nxt;
       baud_cnt <= baud_cnt_nxt;
     end
@@ -65,7 +61,7 @@ module uart_tx #(
     nxt_state = state;
     case (state)
       IDLE_TX: begin
-        if (START_I) begin
+        if (start_i) begin
           nxt_state = START_TX;
         end
       end
@@ -84,42 +80,40 @@ module uart_tx #(
           nxt_state = IDLE_TX;
         end
       end
+      default:;
     endcase
   end
 
   // next output logic
   always_comb begin
     tx_nxt = 1;
-    busy_nxt = 1;
     baud_cnt_nxt = 0;
-    din_q_nxt = 0;
+    tx_byte_q_nxt = 0;
     index_nxt = 0;
     case (state)
       IDLE_TX: begin
         tx_nxt   = 1;
-        busy_nxt = 0;
-        if (START_I) begin
+        if (start_i) begin
           tx_nxt = 0;
-          busy_nxt  = 1;
-          din_q_nxt = TX_BYTE_I;
+          tx_byte_q_nxt = tx_byte_i;
         end
       end
       START_TX: begin
         tx_nxt = 1'b0;
         baud_cnt_nxt = baud_cnt + 1;
-        din_q_nxt = din_q;
+        tx_byte_q_nxt = tx_byte_q;
         if (baud_tick) begin
           baud_cnt_nxt = 0;
-          tx_nxt = din_q[0];
+          tx_nxt = tx_byte_q[0];
         end
       end
       DATA_TX: begin
-        tx_nxt = din_q[index];
+        tx_nxt = tx_byte_q[index];
         baud_cnt_nxt = baud_cnt + 1;
-        din_q_nxt = din_q;
+        tx_byte_q_nxt = tx_byte_q;
         index_nxt = index;
         if (baud_tick) begin
-          tx_nxt = din_q[index+1];
+          tx_nxt = tx_byte_q[index+1];
           index_nxt = index + 1;
           baud_cnt_nxt = 0;
           if (index_last) begin
@@ -131,13 +125,13 @@ module uart_tx #(
       STOP_TX: begin
         tx_nxt = 1'b1;
         baud_cnt_nxt = baud_cnt + 1;
-        din_q_nxt = din_q;
+        tx_byte_q_nxt = tx_byte_q;
         if (baud_tick) begin
           tx_nxt = 1'b1;
           baud_cnt_nxt = 0;
-          busy_nxt = 0;
         end
       end
+      default:;
     endcase
   end
 
@@ -145,8 +139,8 @@ module uart_tx #(
 
   assign baud_tick = (baud_cnt == (CLKS_PER_BIT - 1));
 
-  assign TX_O = tx;
-  assign BUSY_O = busy;
+  assign tx_o = tx;
+  assign busy_o = (nxt_state != IDLE_TX);
 
   /******************************************/
   //
@@ -154,38 +148,38 @@ module uart_tx #(
   //
   /******************************************/
 `ifdef FORMAL
-  default clocking @(posedge CLK_I);
+  default clocking @(posedge clk_i);
   endclocking
   (* anyseq *) wire f_tx_start;
   (* anyseq *) wire [DATA_WIDTH-1:0] f_tx_data;
 
-  initial assume (RST_I == 1);
+  initial assume (rst_i == 1);
   always_comb begin
-    assume (TX_BYTE_I == f_tx_data);
-    assume (START_I == f_tx_start);
+    assume (tx_byte_i == f_tx_data);
+    assume (start_i == f_tx_start);
     if (busy) assume (!f_tx_start);
   end
-  always_ff @(posedge CLK_I) begin
+  always_ff @(posedge clk_i) begin
     if (busy) assume ($stable(f_tx_data));
   end
   // tx must hold its value if baud tick is false and is busy
   property STABLE_TX;
-    disable iff (RST_I) !baud_tick && busy |-> ##1 $stable(
+    disable iff (rst_i) !baud_tick && busy |-> ##1 $stable(
         tx
     );
   endproperty
 
   property LIMIT_COUNT;
-    disable iff (RST_I) baud_cnt <= (CLKS_PER_BIT - 1);
+    disable iff (rst_i) baud_cnt <= (CLKS_PER_BIT - 1);
   endproperty
 
   property RESET_STATE;
-    (RST_I |-> ##1 (state == IDLE_TX));
+    (rst_i |-> ##1 (state == IDLE_TX));
   endproperty
 
 
   property TX_TRANSACTION;
-    disable iff (RST_I) 
+    disable iff (rst_i) 
     (state == IDLE_TX)
     ##[1:$] (state == START_TX) 
     ##[1:$] (state == DATA_TX) 
@@ -194,18 +188,18 @@ module uart_tx #(
   endproperty
 
   sequence TRANSMIT_TRANSACTION(CLKS, logic [7:0] DATA_BYTE);
-  !busy && START_I && TX_BYTE_I == DATA_BYTE ##1
-  !TX_O [*CLKS] ##1 
-  (TX_O == DATA_BYTE[0])[*CLKS] ##1
-  (TX_O == DATA_BYTE[1])[*CLKS] ##1
-  (TX_O == DATA_BYTE[2])[*CLKS] ##1
-  (TX_O == DATA_BYTE[3])[*CLKS] ##1
-  (TX_O == DATA_BYTE[4])[*CLKS] ##1
-  (TX_O == DATA_BYTE[5])[*CLKS] ##1
-  (TX_O == DATA_BYTE[6])[*CLKS] ##1
-  (TX_O == DATA_BYTE[7])[*CLKS] ##1
-  TX_O[*CLKS] ##1
-  $fell(BUSY_O);
+  !busy && start_i && tx_byte_i == DATA_BYTE ##1
+  !tx_o [*CLKS] ##1 
+  (tx_o == DATA_BYTE[0])[*CLKS] ##1
+  (tx_o == DATA_BYTE[1])[*CLKS] ##1
+  (tx_o == DATA_BYTE[2])[*CLKS] ##1
+  (tx_o == DATA_BYTE[3])[*CLKS] ##1
+  (tx_o == DATA_BYTE[4])[*CLKS] ##1
+  (tx_o == DATA_BYTE[5])[*CLKS] ##1
+  (tx_o == DATA_BYTE[6])[*CLKS] ##1
+  (tx_o == DATA_BYTE[7])[*CLKS] ##1
+  tx_o[*CLKS] ##1
+  $fell(busy_o);
   endsequence
 
   assert property (STABLE_TX);
