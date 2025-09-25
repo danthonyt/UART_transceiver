@@ -1,0 +1,16 @@
+#! /opt/oss-cad-suite/bin/vvp
+:ivl_version "13.0 (devel)" "(s20250103-66-gd67d3323a)";
+:ivl_delay_selection "TYPICAL";
+:vpi_time_precision + 0;
+:vpi_module "/opt/oss-cad-suite/lib/ivl/system.vpi";
+:vpi_module "/opt/oss-cad-suite/lib/ivl/vhdl_sys.vpi";
+:vpi_module "/opt/oss-cad-suite/lib/ivl/vhdl_textio.vpi";
+:vpi_module "/opt/oss-cad-suite/lib/ivl/v2005_math.vpi";
+:vpi_module "/opt/oss-cad-suite/lib/ivl/va_math.vpi";
+S_0x555593e61de0 .scope module, "uart_axil_wrapper" "uart_axil_wrapper" 2 1;
+ .timescale 0 0;
+# The file index is used to find the file name in the following table.
+:file_names 3;
+    "N/A";
+    "<interactive>";
+    "/home/dtorres/Documents/work/riscv-formal/cores/dtcore32/peripherals/uart/rtl/uart_axil_wrapper.v";

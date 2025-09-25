@@ -19,19 +19,19 @@ mode prove
 smtbmc boolector
 
 [script]
-read -formal wb_uart.sv
-read -sv uart_regfile.sv
-read -sv fifo.sv
-read -sv uart_tx.sv
-read -sv pulse_generator.sv
-read -sv uart_rx.sv
+read -formal wb_uart.v
+read -sv uart_regfile.v
+read -sv fifo.v
+read -sv uart_tx.v
+read -sv pulse_generator.v
+read -sv uart_rx.v
 hierarchy -check -top wb_uart
 prep -top wb_uart
 
 [files]
-wb_uart.sv
-pulse_generator.sv
-uart_rx.sv
-uart_tx.sv
-uart_regfile.sv
-fifo.sv
+wb_uart.v
+pulse_generator.v
+uart_rx.v
+uart_tx.v
+uart_regfile.v
+fifo.v

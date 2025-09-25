@@ -19,9 +19,9 @@ mode prove
 smtbmc boolector
 
 [script]
-read -formal uart_tx.sv
+read -formal uart_tx.v
 hierarchy -check -top uart_tx -chparam CLKS_PER_BIT 4
 prep -top uart_tx
 
 [files]
-uart_tx.sv
+uart_tx.v

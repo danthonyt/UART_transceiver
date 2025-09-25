@@ -19,9 +19,9 @@ mode prove
 smtbmc boolector
 
 [script]
-read -formal uart_regfile.sv
+read -formal uart_regfile.v
 hierarchy -check -top uart_regfile -chparam DATA_WIDTH 8
 prep -top uart_regfile
 
 [files]
-uart_regfile.sv
+uart_regfile.v
