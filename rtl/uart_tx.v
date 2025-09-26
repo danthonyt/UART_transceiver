@@ -178,26 +178,26 @@ module uart_tx #(
 
   property TX_TRANSACTION;
     disable iff (rst_i)
-      (state == IDLE_TX)
-        ##[1:$] (state == START_TX)
-          ##[1:$] (state == DATA_TX)
-            ##[1:$] (state == STOP_TX)
-              ##[1:$] (state == IDLE_TX);
+    (state == IDLE_TX)
+    ##[1:$] (state == START_TX)
+    ##[1:$] (state == DATA_TX)
+    ##[1:$] (state == STOP_TX)
+    ##[1:$] (state == IDLE_TX);
   endproperty
 
   sequence TRANSMIT_TRANSACTION(CLKS, logic [7:0] DATA_BYTE);
     !busy && start_i && tx_byte_i == DATA_BYTE ##1
-      !tx_o [*CLKS] ##1
-        (tx_o == DATA_BYTE[0])[*CLKS] ##1
-          (tx_o == DATA_BYTE[1])[*CLKS] ##1
-            (tx_o == DATA_BYTE[2])[*CLKS] ##1
-              (tx_o == DATA_BYTE[3])[*CLKS] ##1
-                (tx_o == DATA_BYTE[4])[*CLKS] ##1
-                  (tx_o == DATA_BYTE[5])[*CLKS] ##1
-                    (tx_o == DATA_BYTE[6])[*CLKS] ##1
-                      (tx_o == DATA_BYTE[7])[*CLKS] ##1
-                        tx_o[*CLKS] ##1
-                          $fell(busy_o);
+    !tx_o [*CLKS] ##1
+    (tx_o == DATA_BYTE[0])[*CLKS] ##1
+    (tx_o == DATA_BYTE[1])[*CLKS] ##1
+    (tx_o == DATA_BYTE[2])[*CLKS] ##1
+    (tx_o == DATA_BYTE[3])[*CLKS] ##1
+    (tx_o == DATA_BYTE[4])[*CLKS] ##1
+    (tx_o == DATA_BYTE[5])[*CLKS] ##1
+    (tx_o == DATA_BYTE[6])[*CLKS] ##1
+    (tx_o == DATA_BYTE[7])[*CLKS] ##1
+    tx_o[*CLKS] ##1
+    $fell(busy_o);
   endsequence
 
   assert property (STABLE_TX);
