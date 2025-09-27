@@ -129,7 +129,7 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16, CLKS_PER_BIT = 4) 
     if (~axi_aresetn_i) begin
       control_reg <= 0;
     end else if (reg_wen) begin
-      case (wraddr_q)
+      case (wraddr_q[3:0])
         4'h4 : begin
           control_reg <= reg_wdata;
         end
@@ -186,7 +186,7 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16, CLKS_PER_BIT = 4) 
           // 1 cycle if a register read
           // 3 cycles if a fifo read
           if (reg_rd) begin
-            case (raddr_q)
+            case (raddr_q[3:0])
               4'h0    : rdata_q <= status_reg;
               4'h4    : rdata_q <= control_reg;
               default : rdata_q <= 0;
