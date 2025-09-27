@@ -30,7 +30,7 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16, CLKS_PER_BIT = 4) 
 );
 
   // tx uart signals
-  wire tx_start;
+  reg tx_start;
   wire tx      ;
   wire tx_busy ;
   // rx uart signals
@@ -47,9 +47,9 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16, CLKS_PER_BIT = 4) 
   wire                  tx_fifo_full ;
   wire                  tx_fifo_rst  ;
   // rx fifo signals
-  wire                  rx_fifo_wen  ;
-  wire                  rx_fifo_ren  ;
-  wire [DATA_WIDTH-1:0] rx_fifo_wdata;
+  reg                  rx_fifo_wen  ;
+  reg                  rx_fifo_ren  ;
+  reg [DATA_WIDTH-1:0] rx_fifo_wdata;
   wire [DATA_WIDTH-1:0] rx_fifo_rdata;
   wire                  rx_fifo_empty;
   wire                  rx_fifo_full ;
@@ -63,9 +63,8 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16, CLKS_PER_BIT = 4) 
   /******************************************/
   reg  [31:0] reg_wdata  ;
   reg         reg_wen    ;
-  reg  [31:0] status_reg ; // read only
+  wire  [31:0] status_reg ; // read only
   reg  [31:0] control_reg; // write/read
-  reg  [31:0] reg_rdata  ;
   wire        rx_fifo_rd ;
   wire        tx_fifo_wr ;
   wire        reg_rd     ;
@@ -92,7 +91,7 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16, CLKS_PER_BIT = 4) 
     B_WAIT = 2'b11;
 
   reg [2:0] write_state;
-  reg [1:0] read_state ;
+  reg [2:0] read_state ;
   // read address channel
   reg axi_arready;
   // read data channel
@@ -130,7 +129,7 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16, CLKS_PER_BIT = 4) 
     if (~axi_aresetn_i) begin
       control_reg <= 0;
     end else if (reg_wen) begin
-      case (addr_i)
+      case (wraddr_q)
         4'h4 : begin
           control_reg <= reg_wdata;
         end
@@ -139,11 +138,11 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16, CLKS_PER_BIT = 4) 
     end
   end
 
-  assign status_reg = {28'd0, tx_fifo_empty_i, tx_fifo_full_i, rx_fifo_empty_i, rx_fifo_full_i};
-  assign rx_fifo_rd = (raddr_q == 4'h8);
-  assign tx_fifo_wr = (wraddr_q == 4'hc);
-  assign reg_rd     = ((raddr_q == 4'h0) || (raddr_q == 4'h4));
-  assign reg_wr     = (wraddr_q == 4'h4);
+  assign status_reg = {28'd0, tx_fifo_empty, tx_fifo_full, rx_fifo_empty, rx_fifo_full};
+  assign rx_fifo_rd = (raddr_q[3:0] == 4'h8);
+  assign tx_fifo_wr = (wraddr_q[3:0] == 4'hc);
+  assign reg_rd     = ((raddr_q[3:0] == 4'h0) || (raddr_q[3:0] == 4'h4));
+  assign reg_wr     = (wraddr_q[3:0] == 4'h4);
 
   assign rx_fifo_rst = control_reg[0];
   assign tx_fifo_rst = control_reg[1];
@@ -158,7 +157,7 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16, CLKS_PER_BIT = 4) 
 
   always @(posedge axi_aclk_i) begin
     if (!axi_aresetn_i) begin
-      read_state  <= RESET_READ;
+      read_state  <= AR_READ;
       axi_arready <= 0;
       axi_rvalid  <= 0;
       axi_rresp   <= 0;
@@ -178,7 +177,7 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16, CLKS_PER_BIT = 4) 
             // the read data of the specified address
             axi_arready     <= 0;
             //
-            next_read_state <= R_READ1;
+            read_state <= R_READ1;
           end
         end
         R_READ1 : begin
@@ -193,17 +192,17 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16, CLKS_PER_BIT = 4) 
               default : rdata_q <= 0;
             endcase
             rresp_q         <= RESP_OKAY;
-            next_read_state <= R_READ4;
+            read_state <= R_READ4;
           end else if (rx_fifo_rd) begin
-            if (!rx_fifo_empty_i) begin
+            if (!rx_fifo_empty) begin
               // wait one cycle to read fifo
-              rx_fifo_ren_o   <= 1;
+              rx_fifo_ren   <= 1;
               rresp_q         <= RESP_OKAY;
-              next_read_state <= R_READ2;
+              read_state <= R_READ2;
             end else begin
               // send an error; the fifo is empty
               rresp_q         <= RESP_ERR;
-              next_read_state <= R_READ4;
+              read_state <= R_READ4;
             end
           end
         end
@@ -213,7 +212,7 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16, CLKS_PER_BIT = 4) 
           // disable fifo read enable
           rx_fifo_ren     <= 0;
           //
-          next_read_state <= R_READ3;
+          read_state <= R_READ3;
 
         end
         R_READ3 : begin
@@ -222,7 +221,7 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16, CLKS_PER_BIT = 4) 
           // sample fifo read data and move on to wait for handshake
           rdata_q         <= rx_fifo_rdata;
           //
-          next_read_state <= R_READ4;
+          read_state <= R_READ4;
 
         end
         R_READ4 : begin
@@ -239,10 +238,9 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16, CLKS_PER_BIT = 4) 
             axi_arready     <= 1;
             axi_rvalid      <= 0;
             //
-            next_read_state <= AR_READ;
+            read_state <= AR_READ;
           end
         end
-        default : next_read_state <= AR_READ;
       endcase
     end
   end
@@ -260,6 +258,7 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16, CLKS_PER_BIT = 4) 
       axi_awready   <= 0;
       axi_wready    <= 0;
       axi_bvalid    <= 0;
+      axi_bresp     <= 0;
       wraddr_q      <= 0;
       wdata_q       <= 0;
       bresp_q       <= 0;
@@ -294,7 +293,7 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16, CLKS_PER_BIT = 4) 
         B_WRITE : begin
           // write to appropriate register or fifo
           if (tx_fifo_wr) begin
-            if (!tx_fifo_full_i) begin
+            if (!tx_fifo_full) begin
               tx_fifo_wen   <= 1;
               tx_fifo_wdata <= wdata_q;
               bresp_q       <= RESP_OKAY;
@@ -326,7 +325,6 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16, CLKS_PER_BIT = 4) 
             write_state <= AW_WAIT;
           end
         end
-        default : write_state <= AW_WAIT;
       endcase
     end
   end
