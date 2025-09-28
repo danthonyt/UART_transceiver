@@ -155,14 +155,14 @@ module uart_tx #(
   always_comb begin
     assume (tx_byte_i == f_tx_data);
     assume (start_i == f_tx_start);
-    if (busy) assume (!f_tx_start);
+    if (busy_o) assume (!f_tx_start);
   end
   always_ff @(posedge clk_i) begin
-    if (busy) assume ($stable(f_tx_data));
+    if (busy_o) assume ($stable(f_tx_data));
   end
   // tx must hold its value if baud tick is false and is busy
   property STABLE_TX;
-    disable iff (rst_i) !baud_tick && busy |-> ##1 $stable(
+    disable iff (rst_i) !baud_tick && busy_o |-> ##1 $stable(
       tx
     );
   endproperty
@@ -186,7 +186,7 @@ module uart_tx #(
   endproperty
 
   sequence TRANSMIT_TRANSACTION(CLKS, logic [7:0] DATA_BYTE);
-    !busy && start_i && tx_byte_i == DATA_BYTE ##1
+    !busy_o && start_i && tx_byte_i == DATA_BYTE ##1
     !tx_o [*CLKS] ##1
     (tx_o == DATA_BYTE[0])[*CLKS] ##1
     (tx_o == DATA_BYTE[1])[*CLKS] ##1

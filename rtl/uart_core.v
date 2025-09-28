@@ -30,7 +30,7 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16, CLKS_PER_BIT = 4) 
 );
 
   // tx uart signals
-  reg tx_start;
+  reg  tx_start;
   wire tx      ;
   wire tx_busy ;
   // rx uart signals
@@ -47,9 +47,9 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16, CLKS_PER_BIT = 4) 
   wire                  tx_fifo_full ;
   wire                  tx_fifo_rst  ;
   // rx fifo signals
-  reg                  rx_fifo_wen  ;
-  reg                  rx_fifo_ren  ;
-  reg [DATA_WIDTH-1:0] rx_fifo_wdata;
+  reg                   rx_fifo_wen  ;
+  reg                   rx_fifo_ren  ;
+  reg  [DATA_WIDTH-1:0] rx_fifo_wdata;
   wire [DATA_WIDTH-1:0] rx_fifo_rdata;
   wire                  rx_fifo_empty;
   wire                  rx_fifo_full ;
@@ -63,7 +63,7 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16, CLKS_PER_BIT = 4) 
   /******************************************/
   reg  [31:0] reg_wdata  ;
   reg         reg_wen    ;
-  wire  [31:0] status_reg ; // read only
+  wire [31:0] status_reg ; // read only
   reg  [31:0] control_reg; // write/read
   wire        rx_fifo_rd ;
   wire        tx_fifo_wr ;
@@ -110,14 +110,11 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16, CLKS_PER_BIT = 4) 
   // transaction signals sampled
   // from axi lite bus
   // Read
-  reg [31:0] rdata_q;
   reg [31:0] raddr_q;
-  reg        rresp_q;
 
   // Write
   reg  [31:0] wraddr_q    ;
   reg  [31:0] wdata_q     ;
-  reg         bresp_q     ;
   wire        ar_handshake;
   wire        r_handshake ;
   wire        aw_handshake;
@@ -163,7 +160,6 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16, CLKS_PER_BIT = 4) 
       axi_rresp   <= 0;
       axi_rdata   <= 0;
       //
-      rdata_q     <= 0;
       rx_fifo_ren <= 0;
     end
     else begin
@@ -172,12 +168,12 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16, CLKS_PER_BIT = 4) 
           axi_arready <= 1;
           axi_rvalid  <= 0;
           if (ar_handshake) begin
-            raddr_q         <= axi_araddr_i;
+            raddr_q     <= axi_araddr_i;
             // on axi read address handshake, register
             // the read data of the specified address
-            axi_arready     <= 0;
+            axi_arready <= 0;
             //
-            read_state <= R_READ1;
+            read_state  <= R_READ1;
           end
         end
         R_READ1 : begin
@@ -187,58 +183,55 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16, CLKS_PER_BIT = 4) 
           // 3 cycles if a fifo read
           if (reg_rd) begin
             case (raddr_q[3:0])
-              4'h0    : rdata_q <= status_reg;
-              4'h4    : rdata_q <= control_reg;
-              default : rdata_q <= 0;
+              4'h0    : axi_rdata <= status_reg;
+              4'h4    : axi_rdata <= control_reg;
+              default : axi_rdata <= 0;
             endcase
-            rresp_q         <= RESP_OKAY;
+            axi_rresp  <= RESP_OKAY;
             read_state <= R_READ4;
           end else if (rx_fifo_rd) begin
             if (!rx_fifo_empty) begin
               // wait one cycle to read fifo
-              rx_fifo_ren   <= 1;
-              rresp_q         <= RESP_OKAY;
-              read_state <= R_READ2;
+              rx_fifo_ren <= 1;
+              axi_rresp   <= RESP_OKAY;
+              read_state  <= R_READ2;
             end else begin
               // send an error; the fifo is empty
-              rresp_q         <= RESP_ERR;
+              axi_rresp  <= RESP_ERR;
               read_state <= R_READ4;
             end
           end
         end
         R_READ2 : begin
-          axi_arready     <= 0;
-          axi_rvalid      <= 0;
+          axi_arready <= 0;
+          axi_rvalid  <= 0;
           // disable fifo read enable
-          rx_fifo_ren     <= 0;
+          rx_fifo_ren <= 0;
           //
-          read_state <= R_READ3;
+          read_state  <= R_READ3;
 
         end
         R_READ3 : begin
-          axi_arready     <= 0;
-          axi_rvalid      <= 1;
+          axi_arready <= 0;
+          axi_rvalid  <= 0;
           // sample fifo read data and move on to wait for handshake
-          rdata_q         <= rx_fifo_rdata;
+          axi_rdata   <= rx_fifo_rdata;
           //
-          read_state <= R_READ4;
+          read_state  <= R_READ4;
 
         end
         R_READ4 : begin
           axi_arready <= 0;
           axi_rvalid  <= 1;
+          // place read data and response on the axi line
           // wait for handshake
           if (r_handshake) begin
             // on axi read response handshake, place the
             // read response on the specified axi signal
-            axi_rvalid      <= 1;
-            axi_rresp       <= rresp_q;
-            axi_rdata       <= rdata_q;
+            axi_arready <= 1;
+            axi_rvalid  <= 0;
             //
-            axi_arready     <= 1;
-            axi_rvalid      <= 0;
-            //
-            read_state <= AR_READ;
+            read_state  <= AR_READ;
           end
         end
       endcase
@@ -261,7 +254,6 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16, CLKS_PER_BIT = 4) 
       axi_bresp     <= 0;
       wraddr_q      <= 0;
       wdata_q       <= 0;
-      bresp_q       <= 0;
       tx_fifo_wen   <= 0;
       tx_fifo_wdata <= 0;
       reg_wen       <= 0;
@@ -296,16 +288,16 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16, CLKS_PER_BIT = 4) 
             if (!tx_fifo_full) begin
               tx_fifo_wen   <= 1;
               tx_fifo_wdata <= wdata_q;
-              bresp_q       <= RESP_OKAY;
+              axi_bresp       <= RESP_OKAY;
               write_state   <= B_WAIT;
             end else begin
-              bresp_q     <= RESP_ERR;
+              axi_bresp     <= RESP_ERR;
               write_state <= B_WAIT;
             end
           end  else if (reg_wr) begin
             reg_wen     <= 1;
             reg_wdata   <= wdata_q;
-            bresp_q     <= RESP_OKAY;
+            axi_bresp     <= RESP_OKAY;
             write_state <= B_WAIT;
           end
         end
@@ -316,8 +308,6 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16, CLKS_PER_BIT = 4) 
           // lower write enables
           tx_fifo_wen <= 0;
           reg_wen     <= 0;
-          // place response on axil line
-          axi_bresp   <= bresp_q;
           if (b_handshake) begin
             axi_awready <= 1;
             axi_wready  <= 0;
@@ -458,148 +448,148 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16, CLKS_PER_BIT = 4) 
   //
   /******************************************/
 `ifdef FORMAL
-default clocking @(posedge axi_aclk_i);
-endclocking
+  default clocking @(posedge axi_aclk_i);
+  endclocking
 // reset on start
-initial assume (!axi_aresetn_i);
-low_enables_on_reset:
-assert property (~axi_aresetn_i |-> ##1 !tx_fifo_ren && !rx_fifo_wen);
+    initial assume (!axi_aresetn_i);
+  low_enables_on_reset:
+    assert property (~axi_aresetn_i |-> ##1 !tx_fifo_ren && !rx_fifo_wen);
 // tx fifo read enable should never go high if the tx fifo is in reset,
 // it is empty, or the tx is busy
-tx_fifo_read_low :
-assert property (disable iff (~axi_aresetn_i) tx_fifo_rst || tx_fifo_empty || tx_busy |-> ##1 !tx_fifo_ren);
+  tx_fifo_read_low :
+    assert property (disable iff (~axi_aresetn_i) tx_fifo_rst || tx_fifo_empty || tx_busy |-> ##1 !tx_fifo_ren);
 
 // rx fifo write enable should never go high if the rx fifo is in reset,
 // the rx fifo is full, or the rx byte is invalid
-rx_fifo_write_low :
-assert property (disable iff (~axi_aresetn_i) rx_fifo_rst || rx_fifo_full || !rx_byte_valid |-> ##1 !rx_fifo_wen);
+  rx_fifo_write_low :
+    assert property (disable iff (~axi_aresetn_i) rx_fifo_rst || rx_fifo_full || !rx_byte_valid |-> ##1 !rx_fifo_wen);
 
 // write enables are only high for one cycle
-assert property (disable iff (!axi_aresetn_i) $rose(tx_fifo_wen) |-> ##1 $fell(tx_fifo_wen));
-assert property (disable iff (!axi_aresetn_i) $rose(reg_wen) |-> ##1 $fell(reg_wen));
+  assert property (disable iff (!axi_aresetn_i) $rose(tx_fifo_wen) |-> ##1 $fell(tx_fifo_wen));
+  assert property (disable iff (!axi_aresetn_i) $rose(reg_wen) |-> ##1 $fell(reg_wen));
 
 
   // During reset the following interface requirements apply:
   // • a master interface must drive ARVALID, AWVALID, and WVALID LOW
   // • a slave interface must drive RVALID and BVALID LOW
   // • all other signals can be driven to any value. (p A3-36)
-master_valids_low_on_reset :
-assume property( @(posedge axi_aclk_i)
-(!axi_aresetn_i |-> ##1 ~(axi_wvalid_i | axi_arvalid_i | axi_awvalid_i)));
-slave_valids_low_on_reset :
-assert property (@(posedge axi_aclk_i) (!axi_aresetn_i |-> ##1 ~(axi_rvalid_o | axi_bvalid_o)));
+  master_valids_low_on_reset :
+    assume property( @(posedge axi_aclk_i)
+        (!axi_aresetn_i |-> ##1 ~(axi_wvalid_i | axi_arvalid_i | axi_awvalid_i)));
+      slave_valids_low_on_reset :
+        assert property (@(posedge axi_aclk_i) (!axi_aresetn_i |-> ##1 ~(axi_rvalid_o | axi_bvalid_o)));
 
-  /******************************************/
-  //
-  //    AXI LITE COMPLIANCE
-  //
-  /******************************************/
+      /******************************************/
+      //
+      //    AXI LITE COMPLIANCE
+      //
+      /******************************************/
 // In Figure A3-2, the source presents the address, data or control information after T1 and asserts the VALID signal.
 // "The destination asserts the READY signal after T2, and the source must keep its information stable until the transfer
 // occurs at T3, when this assertion is recognized. (p A3-37)"
 // data is held stable while valid is high
-property stable_source_data(logic valid, logic [31:0] data, logic rst_n);
-disable iff (!rst_n) valid & !$rose(valid) |-> ($stable(data) | !valid);
-endproperty
-stable_data_ar :
-assume property (stable_source_data(
-axi_arvalid_i, axi_araddr_i, axi_aresetn_i
-));
-stable_data_r :
-assert property (stable_source_data(
-axi_rvalid_o, axi_rdata_o, axi_aresetn_i
-));
-stable_data_aw :
-assume property (stable_source_data(
-axi_awvalid_i, axi_awaddr_i, axi_aresetn_i
-));
-stable_data_w :
-assume property (stable_source_data(
-axi_wvalid_i, axi_wdata_i, axi_aresetn_i
-));
-stable_data_b :
-assert property (stable_source_data(
-axi_bvalid_o, axi_bresp_o, axi_aresetn_i
-));
+      property stable_source_data(logic valid, logic [31:0] data, logic rst_n);
+        disable iff (!rst_n) valid & !$rose(valid) |-> ($stable(data) | !valid);
+      endproperty
+      stable_data_ar :
+        assume property (stable_source_data(
+              axi_arvalid_i, axi_araddr_i, axi_aresetn_i
+            ));
+          stable_data_r :
+            assert property (stable_source_data(
+                axi_rvalid_o, axi_rdata_o, axi_aresetn_i
+              ));
+          stable_data_aw :
+            assume property (stable_source_data(
+                  axi_awvalid_i, axi_awaddr_i, axi_aresetn_i
+                ));
+              stable_data_w :
+                assume property (stable_source_data(
+                      axi_wvalid_i, axi_wdata_i, axi_aresetn_i
+                    ));
+                  stable_data_b :
+                    assert property (stable_source_data(
+                        axi_bvalid_o, axi_bresp_o, axi_aresetn_i
+                      ));
 
 // Once VALID is asserted it must remain asserted until the handshake occurs, at a rising clock edge at which VALID
 // and READY are both asserted. (p A3-37)
-property stable_valid_high(logic valid, logic ready, logic rst_n);
-disable iff (!rst_n) (valid & ~ready) |-> ##1 valid;
-endproperty
+                  property stable_valid_high(logic valid, logic ready, logic rst_n);
+                    disable iff (!rst_n) (valid & ~ready) |-> ##1 valid;
+                  endproperty
 
-valid_stays_high_until_handshake_w :
-assume property (
-  stable_valid_high(axi_wvalid_i, axi_wready_o, axi_aresetn_i)
-  );
-valid_stays_high_until_handshake_ar :
-assume property (
-  stable_valid_high(axi_arvalid_i, axi_arready_o, axi_aresetn_i)
-);
-valid_stays_high_until_handshake_aw :
-assume property (stable_valid_high(
-axi_awvalid_i, axi_awready_o, axi_aresetn_i
-));
-valid_stays_high_until_handshake_r :
-assert property (stable_valid_high(
-axi_rvalid_o, axi_rready_i, axi_aresetn_i
-));
-valid_stays_high_until_handshake_b :
-assert property (stable_valid_high(
-axi_bvalid_o, axi_bready_i, axi_aresetn_i
-));
+                  valid_stays_high_until_handshake_w :
+                    assume property (
+                        stable_valid_high(axi_wvalid_i, axi_wready_o, axi_aresetn_i)
+                      );
+                      valid_stays_high_until_handshake_ar :
+                        assume property (
+                            stable_valid_high(axi_arvalid_i, axi_arready_o, axi_aresetn_i)
+                          );
+                          valid_stays_high_until_handshake_aw :
+                            assume property (stable_valid_high(
+                                  axi_awvalid_i, axi_awready_o, axi_aresetn_i
+                                ));
+                              valid_stays_high_until_handshake_r :
+                                assert property (stable_valid_high(
+                                    axi_rvalid_o, axi_rready_i, axi_aresetn_i
+                                  ));
+                              valid_stays_high_until_handshake_b :
+                                assert property (stable_valid_high(
+                                    axi_bvalid_o, axi_bready_i, axi_aresetn_i
+                                  ));
 
-  /******************************************/
-  //
-  //    COVER STATEMENTS
-  //
-  /******************************************/
+                              /******************************************/
+                              //
+                              //    COVER STATEMENTS
+                              //
+                              /******************************************/
 // make sure a read can happen
-read_complete :
-cover property (
-  disable iff (!axi_aresetn_i) 
-  read_state == AR_READ  ##1 
-  read_state == R_READ1  ##1 
-  read_state == R_READ2  ##1 
-  read_state == R_READ3  ##1 
-  read_state == R_READ4  ##1
-  read_state == AR_READ
-  );
+                              read_complete :
+                                cover property (
+                                  disable iff (!axi_aresetn_i)
+                                  read_state == AR_READ  ##1
+                                  read_state == R_READ1  ##1
+                                  read_state == R_READ2  ##1
+                                  read_state == R_READ3  ##1
+                                  read_state == R_READ4  ##1
+                                  read_state == AR_READ
+                                );
 // make sure a write can happen
-write_complete :
-cover property (
-  disable iff (!axi_aresetn_i) 
-  write_state == AW_WAIT ##1 
-  write_state == W_WAIT  ##1 
-  write_state == B_WRITE ##1 
-  write_state == B_WAIT  ##1
-  write_state == AW_WAIT
-  );
+                              write_complete :
+                                cover property (
+                                  disable iff (!axi_aresetn_i)
+                                  write_state == AW_WAIT ##1
+                                  write_state == W_WAIT  ##1
+                                  write_state == B_WRITE ##1
+                                  write_state == B_WAIT  ##1
+                                  write_state == AW_WAIT
+                                );
 
 // tx must hold its value if baud tick is false and is busy
 
 // covers:
 // write to non-full tx fifo
-cover property (state == IDLE && wb_cyc_i && wb_stb_i && tx_fifo_wr && !tx_fifo_full_i##1
-state == IDLE && wb_ack_o && !wb_err_o);
+                              cover property (state == IDLE && wb_cyc_i && wb_stb_i && tx_fifo_wr && !tx_fifo_full_i##1
+                                state == IDLE && wb_ack_o && !wb_err_o);
 // write to full tx fifo - error
-cover property (state == IDLE && wb_cyc_i && wb_stb_i && tx_fifo_wr && tx_fifo_full_i ##1
-state == IDLE && !wb_ack_o && wb_err_o);
+                              cover property (state == IDLE && wb_cyc_i && wb_stb_i && tx_fifo_wr && tx_fifo_full_i ##1
+                                state == IDLE && !wb_ack_o && wb_err_o);
 // read from non empty rx fifo
-cover property (state == IDLE && wb_cyc_i && wb_stb_i && rx_fifo_rd && !rx_fifo_empty_i ##1
-state == READ_FIFO_WAIT && rx_fifo_ren_o ##1 state == IDLE && wb_ack_o && wb_dat_o == rx_fifo_rdata_i);
+                              cover property (state == IDLE && wb_cyc_i && wb_stb_i && rx_fifo_rd && !rx_fifo_empty_i ##1
+                                state == READ_FIFO_WAIT && rx_fifo_ren_o ##1 state == IDLE && wb_ack_o && wb_dat_o == rx_fifo_rdata_i);
 // read from empty rx fifo - error
-cover property (state == IDLE && wb_cyc_i && wb_stb_i && rx_fifo_rd && rx_fifo_empty_i ##1
-state == IDLE && !wb_ack_o && wb_err_o);
+                              cover property (state == IDLE && wb_cyc_i && wb_stb_i && rx_fifo_rd && rx_fifo_empty_i ##1
+                                state == IDLE && !wb_ack_o && wb_err_o);
 // invalid request
-cover property (state == IDLE && wb_cyc_i && wb_stb_i && !rx_fifo_rd  && !tx_fifo_wr && !reg_rd && !reg_wr ##1
-state == IDLE && !wb_ack_o && wb_err_o);
+                              cover property (state == IDLE && wb_cyc_i && wb_stb_i && !rx_fifo_rd  && !tx_fifo_wr && !reg_rd && !reg_wr ##1
+                                state == IDLE && !wb_ack_o && wb_err_o);
 // read from register
-cover property (state == IDLE && wb_cyc_i && wb_stb_i && reg_rd ##1
-state == IDLE && wb_ack_o && !wb_err_o && wb_dat_o == reg_rdata);
+                              cover property (state == IDLE && wb_cyc_i && wb_stb_i && reg_rd ##1
+                                state == IDLE && wb_ack_o && !wb_err_o && wb_dat_o == reg_rdata);
 // write to register
-cover property (state == IDLE && wb_cyc_i && wb_stb_i && reg_wr ##1
-state == IDLE && wb_ack_o && !wb_err_o);
+                              cover property (state == IDLE && wb_cyc_i && wb_stb_i && reg_wr ##1
+                                state == IDLE && wb_ack_o && !wb_err_o);
 
 `endif
-endmodule
+                              endmodule
