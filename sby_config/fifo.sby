@@ -1,0 +1,27 @@
+[tasks]
+basic bmc
+cover_task1 cover
+prove_task1 prove
+
+
+[options]
+bmc: 
+mode bmc
+depth 30
+cover:
+mode cover
+depth 30
+prove:
+mode prove
+--
+
+[engines]
+smtbmc boolector
+
+[script]
+read -formal fifo.v
+hierarchy -check -top fifo
+prep -top fifo
+
+[files]
+fifo.v

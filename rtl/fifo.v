@@ -40,4 +40,17 @@ module fifo #(parameter DEPTH  = 16, DWIDTH = 8) (
 
   assign full_o  = ((wptr + 1) % DEPTH) == rptr;
   assign empty_o = wptr == rptr;
+
+  /******************************************/
+  //
+  //    FORMAL VERIFICATION
+  //
+  /******************************************/
+`ifdef FORMAL
+  initial assume (rst_i);
+  assert property(
+    @(posedge clk_i)
+    rst_i |-> ##1 wptr == 0 && rptr == 0 && rdata_o == 0
+    );
+`endif
 endmodule

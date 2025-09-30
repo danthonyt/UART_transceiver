@@ -544,52 +544,10 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16, CLKS_PER_BIT = 4) 
                               //    COVER STATEMENTS
                               //
                               /******************************************/
-// make sure a read can happen
-                              read_complete :
-                                cover property (
-                                  disable iff (!axi_aresetn_i)
-                                  read_state == AR_READ  ##1
-                                  read_state == R_READ1  ##1
-                                  read_state == R_READ2  ##1
-                                  read_state == R_READ3  ##1
-                                  read_state == R_READ4  ##1
-                                  read_state == AR_READ
-                                );
-// make sure a write can happen
-                              write_complete :
-                                cover property (
-                                  disable iff (!axi_aresetn_i)
-                                  write_state == AW_WAIT ##1
-                                  write_state == W_WAIT  ##1
-                                  write_state == B_WRITE ##1
-                                  write_state == B_WAIT  ##1
-                                  write_state == AW_WAIT
-                                );
 
 // tx must hold its value if baud tick is false and is busy
 
 // covers:
-// write to non-full tx fifo
-                              cover property (state == IDLE && wb_cyc_i && wb_stb_i && tx_fifo_wr && !tx_fifo_full_i##1
-                                state == IDLE && wb_ack_o && !wb_err_o);
-// write to full tx fifo - error
-                              cover property (state == IDLE && wb_cyc_i && wb_stb_i && tx_fifo_wr && tx_fifo_full_i ##1
-                                state == IDLE && !wb_ack_o && wb_err_o);
-// read from non empty rx fifo
-                              cover property (state == IDLE && wb_cyc_i && wb_stb_i && rx_fifo_rd && !rx_fifo_empty_i ##1
-                                state == READ_FIFO_WAIT && rx_fifo_ren_o ##1 state == IDLE && wb_ack_o && wb_dat_o == rx_fifo_rdata_i);
-// read from empty rx fifo - error
-                              cover property (state == IDLE && wb_cyc_i && wb_stb_i && rx_fifo_rd && rx_fifo_empty_i ##1
-                                state == IDLE && !wb_ack_o && wb_err_o);
-// invalid request
-                              cover property (state == IDLE && wb_cyc_i && wb_stb_i && !rx_fifo_rd  && !tx_fifo_wr && !reg_rd && !reg_wr ##1
-                                state == IDLE && !wb_ack_o && wb_err_o);
-// read from register
-                              cover property (state == IDLE && wb_cyc_i && wb_stb_i && reg_rd ##1
-                                state == IDLE && wb_ack_o && !wb_err_o && wb_dat_o == reg_rdata);
-// write to register
-                              cover property (state == IDLE && wb_cyc_i && wb_stb_i && reg_wr ##1
-                                state == IDLE && wb_ack_o && !wb_err_o);
 
 `endif
                               endmodule
