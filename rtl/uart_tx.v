@@ -2,32 +2,51 @@
 // Example: 10 MHz Clock, 115200 baud uart
 // (10,000,000)/(115,200) = 87
 module uart_tx #(
-  // 5 to 9 data bits
-  parameter DATA_WIDTH   = 8 ,
   // baud rate
   parameter CLKS_PER_BIT = 87
 ) (
   input                    clk_i    ,
   input                    rst_i    ,
   input                    start_i  ,
-  input   [DATA_WIDTH-1:0] tx_byte_i,
+  // data width - 5 to 8 bits
+  input [3:0] data_width_i,
+  // enable parity bit
+  input parity_en_i,
+  // odd parity bit when high, else even parity
+  input parity_odd_i,
+  // stop bits - 1 or 2 bits
+  input [1:0] stop_bits_i,
+  // support maximum of 9 bits 
+  input   [8:0] tx_byte_i,
   output  reg                 tx_o     ,
-  output                   busy_o     // tx uart is busy
+  output                   busy_o,     // tx uart is busy
+  output reg done_o
 );
   // FSM states
-  localparam [1:0] IDLE_TX = 2'd0,
-    START_TX = 2'd1,
-    DATA_TX = 2'd2,
-    STOP_TX = 2'd3;
+  localparam [2:0] IDLE_TX = 3'd0,
+    START_TX = 3'd1,
+    DATA_TX = 3'd2,
+    STOP_TX = 3'd3,
+    PARITY_TX = 3'd4;
 
-  reg [1:0] state;
-  // index of TX DATA
-  reg [$clog2(DATA_WIDTH)-1:0] index;
+  reg [2:0] state;
+  // index of TX DATA 
+  // support up to 9 elements
+  reg [3:0] index;
+  reg stop_cnt;
   // clock cycle count
   reg [$clog2(CLKS_PER_BIT)-1:0] baud_cnt;
   wire                            baud_tick ;
   wire                            index_last;
-  reg [          DATA_WIDTH-1:0] tx_byte_q;
+  reg [          8:0] tx_byte_q;
+  wire parity_bit;
+  // register signals on start of the transaction
+  reg parity_en_q;
+  reg parity_odd_q;
+  reg [1:0] stop_bits_q;
+  reg [3:0] data_width_q;
+  wire [8:0] masked_data; 
+
 
   // state register
   always @(posedge clk_i) begin
@@ -37,13 +56,28 @@ module uart_tx #(
       tx_byte_q <= 0;
       index <= 0;
       baud_cnt <= 0;
+      // default to no parity bit
+      parity_en_q <= 0;
+      parity_odd_q <= 0;
+      // default to 1 stop bit
+      stop_bits_q <= 2'd1;
+      // default to 8 data bits
+      data_width_q <= 4'd8;
+      done_o <= 0;
+      stop_cnt <= 0;
     end else begin
       case (state)
       IDLE_TX : begin
         tx_o <= 1;
+        done_o <= 0;
+        // register configuration at start of transaction
         if (start_i) begin
           tx_o <= 0;
           tx_byte_q <= tx_byte_i;
+          parity_en_q <= parity_en_i;
+          parity_odd_q <= parity_odd_i;
+          stop_bits_q <= stop_bits_i;
+          data_width_q <= data_width_i;
           state <= START_TX;
         end
       end
@@ -67,17 +101,39 @@ module uart_tx #(
           if(index_last) begin
             tx_o <= 1;
             index <= 0;
-            state <= STOP_TX;
+            // generate parity bit if enabled
+            if (parity_en_q) begin
+              state <= PARITY_TX;
+              tx_o <= parity_bit;
+            end else begin
+              state <= STOP_TX;
+            end
           end
+        end
+      end
+      PARITY_TX: begin
+        tx_o <= parity_bit;
+        baud_cnt <= baud_cnt + 1;
+        if (baud_tick) begin
+          tx_o <= 1;
+          baud_cnt <= 0;
+          state <= STOP_TX;
         end
       end
       STOP_TX : begin
         tx_o        <= 1'b1;
         baud_cnt  <= baud_cnt + 1;
-        tx_byte_q <= tx_byte_q;
         if (baud_tick) begin
-          state <= IDLE_TX;
+          // increment stop bit count
+          // if only one stop bit, immediately go 
+          // to IDLE_TX state
+          stop_cnt <= stop_cnt + 1;
           baud_cnt <= 0;
+          if (stop_cnt >= (stop_bits_q - 1)) begin
+            state <= IDLE_TX;
+            done_o <= 1;
+            stop_cnt <= 0;
+          end 
         end
       end
     endcase 
@@ -85,7 +141,9 @@ module uart_tx #(
   
   end
 
-  assign index_last = (index >= DATA_WIDTH - 1);
+  assign masked_data = tx_byte_q & ((1 << data_width_q) - 1);
+  assign parity_bit = parity_odd_q ?  ~(^masked_data)  : (^masked_data); 
+  assign index_last = (index >= data_width_q - 1);
 
   assign baud_tick = (baud_cnt == (CLKS_PER_BIT - 1));
 
