@@ -1,5 +1,11 @@
 # Ignore all files recursively in sby_config
 sby_config/**
+*.Xil
+*.pb
+*.log
+*.jou
+*.log
+uart/
 
 
 # Only include top-level .sby files

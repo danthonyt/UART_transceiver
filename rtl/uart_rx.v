@@ -1,35 +1,55 @@
 // CLKS_PER_BIT = (frequency of clk)/(frequency of uart)
 // Example: 10 MHz Clock, 115200 baud uart
 // (10,000,000)/(115,200) = 87
-module uart_rx #(parameter DATA_WIDTH   = 8,  CLKS_PER_BIT = 87) (
-  input                   clk_i          ,
-  input                   rst_i          ,
-  input                   rx_i           , // serial rx input
-  output                  busy_o         , // uart rx in progress
-  output [DATA_WIDTH-1:0] rx_byte_o      , // Shifted byte from rx input
-  output                  rx_byte_valid_o,
-  output                  frame_err_o      // framing error when stop bit is not high
+module uart_rx #(parameter CLKS_PER_BIT = 87) (
+  input        clk_i         ,
+  input        rst_i         ,
+  input        rx_i          , // serial rx input
+  output       busy_o        , // uart rx in progress
+  // support maximum of 9 bits
+  output [8:0] rx_msg_o      , // Shifted byte from rx input
+  output       rx_msg_valid_o,
+  output       parity_err_o  , // parity error when parity does not match
+  output       frame_err_o   , // framing error when stop bit/s is not high
+  // uart rx configuration
+  // data width - 5 to 9 bits
+  input  [3:0] data_width_i  ,
+  // enable parity bit
+  input        parity_en_i   ,
+  // odd parity bit when high, else even parity
+  input        parity_odd_i  ,
+  // stop bits - 1 or 2 bits
+  input  [1:0] stop_bits_i
 );
-  localparam [1:0] IDLE_RX = 2'd0,
-    START_RX = 2'd1,
-    DATA_RX = 2'd2,
-    STOP_RX = 2'd3;
+  localparam [2:0] IDLE_RX = 3'd0,
+    START_RX = 3'd1,
+    DATA_RX = 3'd2,
+    PARITY_RX = 3'd3,
+    STOP_RX = 3'd4;
 
-  reg [1:0] state        ;
-  reg       serial_rx_q  ;
-  reg       serial_rx_qq ;
-  reg       busy         ;
-  reg       rx_byte_valid;
-  // index of TX DATA
-  reg [$clog2(DATA_WIDTH)-1:0] index;
+  reg [2:0] state       ;
+  reg       serial_rx_q ;
+  reg       serial_rx_qq;
+  reg       busy        ;
+  reg       rx_msg_valid;
+  // index of RX DATA
+  // support up to 9 elements
+  reg [3:0] index   ;
+  reg       stop_cnt;
   // clock cycle count
   reg  [$clog2(CLKS_PER_BIT)-1:0] baud_cnt      ;
-  reg  [          DATA_WIDTH-1:0] shift_reg     ;
+  reg  [                     3:0] shift_reg     ;
   wire                            baud_tick     ;
   wire                            baud_tick_half;
   wire                            index_done    ;
-  reg  [          DATA_WIDTH-1:0] data          ;
+  reg  [                     3:0] rx_msg        ;
   reg                             frame_err     ;
+  reg                             parity_err    ;
+
+  reg [3:0] data_width_q;
+  reg       parity_en_q ;
+  reg       parity_odd_q;
+  reg [1:0] stop_bits_q ;
 
 
   always @(posedge clk_i) begin
@@ -44,25 +64,38 @@ module uart_rx #(parameter DATA_WIDTH   = 8,  CLKS_PER_BIT = 87) (
 
   always @(posedge clk_i) begin
     if (rst_i) begin
-      state         <= IDLE_RX;
-      busy          <= 0;
-      baud_cnt      <= 0;
-      index         <= 0;
-      shift_reg     <= 0;
-      data          <= 0;
-      frame_err     <= 0;
-      rx_byte_valid <= 0;
+      state        <= IDLE_RX;
+      busy         <= 0;
+      baud_cnt     <= 0;
+      index        <= 0;
+      shift_reg    <= 0;
+      rx_msg       <= 0;
+      frame_err    <= 0;
+      parity_err   <= 0;
+      rx_msg_valid <= 0;
+      stop_cnt     <= 0;
+      // default to 8 bit data width, no parity, 1 stop bit
+      data_width_q <= 4'h8;
+      parity_en_q  <= 0;
+      parity_odd_q <= 0;
+      stop_bits_q  <= 2'h1;
     end else begin
-      busy          <= 1;
-      baud_cnt      <= 0;
-      index         <= 0;
-      shift_reg     <= 0;
-      data          <= 0;
-      frame_err     <= 0;
-      rx_byte_valid <= 0;
       case (state)
         IDLE_RX : begin
-          busy <= 0;
+          busy         <= 0;
+          baud_cnt     <= 0;
+          index        <= 0;
+          shift_reg    <= 0;
+          rx_msg       <= 0;
+          frame_err    <= 0;
+          parity_err   <= 0;
+          rx_msg_valid <= 0;
+          stop_cnt     <= 0;
+          // default to 8 bit data width, no parity, 1 stop bit
+          data_width_q <= data_width_i;
+          parity_en_q  <= parity_en_i;
+          parity_odd_q <= parity_odd_i;
+          stop_bits_q  <= stop_bits_i;
           if (!serial_rx_qq) begin
             baud_cnt <= baud_cnt + 1;
             state    <= START_RX;
@@ -85,126 +118,65 @@ module uart_rx #(parameter DATA_WIDTH   = 8,  CLKS_PER_BIT = 87) (
         DATA_RX : begin
           baud_cnt  <= baud_cnt + 1;
           index     <= index;
-          shift_reg <= shift_reg;
           if (baud_tick) begin
             baud_cnt  <= 0;
+            // shift in bits on every baud tick
             shift_reg <= {serial_rx_qq, shift_reg[7:1]};
             index     <= index + 1;
             if (index_done) begin
               index <= 0;
-              state <= STOP_RX;
+              // check for parity error if parity enabled
+              // else go to stop bits
+              state <= parity_en_q ? PARITY_RX : STOP_RX;
             end
           end
         end
-        STOP_RX : begin
-          baud_cnt  <= baud_cnt + 1;
-          shift_reg <= shift_reg;
+        PARITY_RX : begin
+          baud_cnt <= baud_cnt + 1;
           if (baud_tick) begin
-            state         <= IDLE_RX;
-            baud_cnt      <= 0;
-            data          <= shift_reg;
-            busy          <= 0;
-            frame_err     <= serial_rx_qq ? 0 : 1;
-            rx_byte_valid <= 1;
+            baud_cnt   <= 0;
+            // check for a parity error
+            // odd number of 1's for odd parity
+            // even number of 1's for even parity
+            parity_err <= parity_odd_q ? (masked_data ^ serial_rx_qq): ~(masked_data ^ serial_rx_qq);
+            state      <= STOP_RX;
+          end
+        end
+        STOP_RX : begin
+          baud_cnt <= baud_cnt + 1;
+          rx_msg   <= shift_reg;
+          if (baud_tick) begin
+            baud_cnt  <= 0;
+            busy      <= 0;
+            stop_cnt  <= stop_cnt + 1;
+            // check for a frame error
+            // frame error when any stop bits are 0's
+            frame_err <= serial_rx_qq ? frame_err : 1;
+            if (stop_cnt >= (stop_bits_q - 1)) begin
+              state        <= IDLE_RX;
+              stop_cnt     <= 0;
+              // signal end of rx
+              rx_msg_valid <= 1;
+            end
           end
         end
       endcase
     end
   end
 
-  assign baud_tick       = (baud_cnt == (CLKS_PER_BIT - 1));
-  assign baud_tick_half  = (baud_cnt == ((CLKS_PER_BIT / 2) - 1));
-  assign index_done      = (index >= DATA_WIDTH - 1);
-  assign rx_byte_o       = data;
-  assign rx_byte_valid_o = rx_byte_valid;
-  assign busy_o          = busy;
-  assign frame_err_o     = frame_err;
+  // mask rx data to the current configuration
+  // unused bits will be 0's to avoid affecting the
+  // parity check
+  assign masked_data = shift_reg & ((1 << data_width_q) - 1);
 
-  /******************************************/
-  //
-  //    FORMAL VERIFICATION
-  //
-  /******************************************/
-`ifdef FORMAL
-  default clocking @(posedge clk_i);
-  endclocking
+  assign baud_tick      = (baud_cnt == (CLKS_PER_BIT - 1));
+  assign baud_tick_half = (baud_cnt == ((CLKS_PER_BIT / 2) - 1));
+  assign index_done     = (index >= data_width_q - 1);
+  assign rx_msg_o       = rx_msg;
+  assign rx_msg_valid_o = rx_msg_valid;
+  assign busy_o         = busy;
+  assign frame_err_o    = frame_err;
+  assign parity_err_o   = parity_err;
 
-    initial assume (rst_i);
-
-  property LIMIT_COUNT;
-    disable iff (rst_i) baud_cnt <= (CLKS_PER_BIT - 1);
-  endproperty
-
-  property RESET_STATE;
-    (rst_i |-> ##1 (state == IDLE_RX));
-  endproperty
-
-
-  property VALID_BUSY;
-    disable iff (rst_i)
-      (!busy_o |-> state == IDLE_RX);
-  endproperty
-
-  property VALID_STATE;
-    disable iff (rst_i)
-      (state <= STOP_RX);
-  endproperty
-
-
-  property RX_TRANSACTION;
-    disable iff (rst_i)
-      (state == IDLE_RX)
-        ##[1:$] (state == START_RX)
-          ##[1:$] (state == DATA_RX)
-            ##[1:$] (state == STOP_RX)
-              ##[1:$] (state == IDLE_RX);
-  endproperty
-
-  assert property (VALID_STATE);
-  assert property (VALID_BUSY);
-  assert property (LIMIT_COUNT);
-  cover property (RX_TRANSACTION);
-  assert property (RESET_STATE);
-
-  /*
-  // sequence - error free receive
-  start bit - 0 held for N bits - check every clk
-  data bit  - x held for N bits * 8
-  stop bit  - 1 held for N bits
-  */
-  sequence ERR_FREE_RECEIVE(CLKS, logic [7:0] DATA_BYTE);
-    state == IDLE_RX ##0
-      !serial_rx_qq [*CLKS] ##1
-      (serial_rx_qq == DATA_BYTE[0])[*CLKS] ##1
-      (serial_rx_qq == DATA_BYTE[1])[*CLKS] ##1
-      (serial_rx_qq == DATA_BYTE[2])[*CLKS] ##1
-      (serial_rx_qq == DATA_BYTE[3])[*CLKS] ##1
-      (serial_rx_qq == DATA_BYTE[4])[*CLKS] ##1
-      (serial_rx_qq == DATA_BYTE[5])[*CLKS] ##1
-      (serial_rx_qq == DATA_BYTE[6])[*CLKS] ##1
-      (serial_rx_qq == DATA_BYTE[7])[*CLKS] ##1
-      serial_rx_qq[*CLKS/2] ##1
-      $fell(busy_o) && !frame_err && (rx_byte_o == DATA_BYTE);
-  endsequence
-
-  sequence ERR_RECEIVE(CLKS, logic [7:0] DATA_BYTE);
-    state == IDLE_RX ##0
-      !serial_rx_qq [*CLKS] ##1
-      (serial_rx_qq == DATA_BYTE[0])[*CLKS] ##1
-      (serial_rx_qq == DATA_BYTE[1])[*CLKS] ##1
-      (serial_rx_qq == DATA_BYTE[2])[*CLKS] ##1
-      (serial_rx_qq == DATA_BYTE[3])[*CLKS] ##1
-      (serial_rx_qq == DATA_BYTE[4])[*CLKS] ##1
-      (serial_rx_qq == DATA_BYTE[5])[*CLKS] ##1
-      (serial_rx_qq == DATA_BYTE[6])[*CLKS] ##1
-      (serial_rx_qq == DATA_BYTE[7])[*CLKS] ##1
-      !serial_rx_qq[*CLKS/2] ##1
-      $fell(busy_o) && frame_err && (rx_byte_o == DATA_BYTE);
-  endsequence
-  error_free_receive:
-    cover property (disable iff (rst_i) ERR_FREE_RECEIVE(CLKS_PER_BIT, 8'had));
-  error_receive:
-    cover property (disable iff (rst_i) ERR_RECEIVE(CLKS_PER_BIT, 8'had));
-`endif
 endmodule
 

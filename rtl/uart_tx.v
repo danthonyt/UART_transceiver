@@ -8,7 +8,7 @@ module uart_tx #(
   input                    clk_i    ,
   input                    rst_i    ,
   input                    start_i  ,
-  // data width - 5 to 8 bits
+  // data width - 5 to 9 bits
   input [3:0] data_width_i,
   // enable parity bit
   input parity_en_i,
