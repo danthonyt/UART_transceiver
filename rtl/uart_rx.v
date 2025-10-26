@@ -38,11 +38,11 @@ module uart_rx #(parameter CLKS_PER_BIT = 87) (
   reg       stop_cnt;
   // clock cycle count
   reg  [$clog2(CLKS_PER_BIT)-1:0] baud_cnt      ;
-  reg  [                     3:0] shift_reg     ;
+  reg  [                     8:0] rx_data     ;
   wire                            baud_tick     ;
   wire                            baud_tick_half;
   wire                            index_done    ;
-  reg  [                     3:0] rx_msg        ;
+  reg  [                     8:0] rx_msg        ;
   reg                             frame_err     ;
   reg                             parity_err    ;
 
@@ -68,7 +68,7 @@ module uart_rx #(parameter CLKS_PER_BIT = 87) (
       busy         <= 0;
       baud_cnt     <= 0;
       index        <= 0;
-      shift_reg    <= 0;
+      rx_data    <= 0;
       rx_msg       <= 0;
       frame_err    <= 0;
       parity_err   <= 0;
@@ -85,7 +85,7 @@ module uart_rx #(parameter CLKS_PER_BIT = 87) (
           busy         <= 0;
           baud_cnt     <= 0;
           index        <= 0;
-          shift_reg    <= 0;
+          rx_data    <= 0;
           rx_msg       <= 0;
           frame_err    <= 0;
           parity_err   <= 0;
@@ -121,7 +121,7 @@ module uart_rx #(parameter CLKS_PER_BIT = 87) (
           if (baud_tick) begin
             baud_cnt  <= 0;
             // shift in bits on every baud tick
-            shift_reg <= {serial_rx_qq, shift_reg[7:1]};
+            rx_data[index] <= serial_rx_qq;
             index     <= index + 1;
             if (index_done) begin
               index <= 0;
@@ -144,7 +144,7 @@ module uart_rx #(parameter CLKS_PER_BIT = 87) (
         end
         STOP_RX : begin
           baud_cnt <= baud_cnt + 1;
-          rx_msg   <= shift_reg;
+          rx_msg   <= rx_data;
           if (baud_tick) begin
             baud_cnt  <= 0;
             busy      <= 0;
@@ -167,7 +167,7 @@ module uart_rx #(parameter CLKS_PER_BIT = 87) (
   // mask rx data to the current configuration
   // unused bits will be 0's to avoid affecting the
   // parity check
-  assign masked_data = shift_reg & ((1 << data_width_q) - 1);
+  assign masked_data = rx_data & ((1 << data_width_q) - 1);
 
   assign baud_tick      = (baud_cnt == (CLKS_PER_BIT - 1));
   assign baud_tick_half = (baud_cnt == ((CLKS_PER_BIT / 2) - 1));

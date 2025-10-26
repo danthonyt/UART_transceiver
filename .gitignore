@@ -5,6 +5,7 @@ sby_config/**
 *.log
 *.jou
 *.log
+build/
 uart/
 
 
