@@ -8,7 +8,7 @@ module uart_rx #(parameter CLKS_PER_BIT = 87) (
   output       busy_o        , // uart rx in progress
   // support maximum of 9 bits
   output [8:0] rx_msg_o      , // Shifted byte from rx input
-  output       rx_msg_valid_o,
+  output       done_o,
   output       parity_err_o  , // parity error when parity does not match
   output       frame_err_o   , // framing error when stop bit/s is not high
   // uart rx configuration
@@ -31,14 +31,14 @@ module uart_rx #(parameter CLKS_PER_BIT = 87) (
   reg       serial_rx_q ;
   reg       serial_rx_qq;
   reg       busy        ;
-  reg       rx_msg_valid;
+  reg       done;
   // index of RX DATA
   // support up to 9 elements
   reg [3:0] index   ;
   reg       stop_cnt;
   // clock cycle count
   reg  [$clog2(CLKS_PER_BIT)-1:0] baud_cnt      ;
-  reg  [                     8:0] rx_data     ;
+  reg  [                     8:0] rx_data       ;
   wire                            baud_tick     ;
   wire                            baud_tick_half;
   wire                            index_done    ;
@@ -65,14 +65,13 @@ module uart_rx #(parameter CLKS_PER_BIT = 87) (
   always @(posedge clk_i) begin
     if (rst_i) begin
       state        <= IDLE_RX;
-      busy         <= 0;
       baud_cnt     <= 0;
       index        <= 0;
-      rx_data    <= 0;
+      rx_data      <= 0;
       rx_msg       <= 0;
       frame_err    <= 0;
       parity_err   <= 0;
-      rx_msg_valid <= 0;
+      done <= 0;
       stop_cnt     <= 0;
       // default to 8 bit data width, no parity, 1 stop bit
       data_width_q <= 4'h8;
@@ -82,14 +81,13 @@ module uart_rx #(parameter CLKS_PER_BIT = 87) (
     end else begin
       case (state)
         IDLE_RX : begin
-          busy         <= 0;
           baud_cnt     <= 0;
           index        <= 0;
-          rx_data    <= 0;
+          rx_data      <= 0;
           rx_msg       <= 0;
           frame_err    <= 0;
           parity_err   <= 0;
-          rx_msg_valid <= 0;
+          done <= 0;
           stop_cnt     <= 0;
           // default to 8 bit data width, no parity, 1 stop bit
           data_width_q <= data_width_i;
@@ -99,7 +97,6 @@ module uart_rx #(parameter CLKS_PER_BIT = 87) (
           if (!serial_rx_qq) begin
             baud_cnt <= baud_cnt + 1;
             state    <= START_RX;
-            busy     <= 1;
           end
         end
         START_RX : begin
@@ -116,13 +113,13 @@ module uart_rx #(parameter CLKS_PER_BIT = 87) (
           end
         end
         DATA_RX : begin
-          baud_cnt  <= baud_cnt + 1;
-          index     <= index;
+          baud_cnt <= baud_cnt + 1;
+          index    <= index;
           if (baud_tick) begin
-            baud_cnt  <= 0;
+            baud_cnt       <= 0;
             // shift in bits on every baud tick
             rx_data[index] <= serial_rx_qq;
-            index     <= index + 1;
+            index          <= index + 1;
             if (index_done) begin
               index <= 0;
               // check for parity error if parity enabled
@@ -138,7 +135,7 @@ module uart_rx #(parameter CLKS_PER_BIT = 87) (
             // check for a parity error
             // odd number of 1's for odd parity
             // even number of 1's for even parity
-            parity_err <= parity_odd_q ? (masked_data ^ serial_rx_qq): ~(masked_data ^ serial_rx_qq);
+            parity_err <= parity_odd_q ? ~^({rx_data , serial_rx_qq}): ^({rx_data, serial_rx_qq});
             state      <= STOP_RX;
           end
         end
@@ -147,7 +144,6 @@ module uart_rx #(parameter CLKS_PER_BIT = 87) (
           rx_msg   <= rx_data;
           if (baud_tick) begin
             baud_cnt  <= 0;
-            busy      <= 0;
             stop_cnt  <= stop_cnt + 1;
             // check for a frame error
             // frame error when any stop bits are 0's
@@ -156,7 +152,7 @@ module uart_rx #(parameter CLKS_PER_BIT = 87) (
               state        <= IDLE_RX;
               stop_cnt     <= 0;
               // signal end of rx
-              rx_msg_valid <= 1;
+              done <= 1;
             end
           end
         end
@@ -164,17 +160,12 @@ module uart_rx #(parameter CLKS_PER_BIT = 87) (
     end
   end
 
-  // mask rx data to the current configuration
-  // unused bits will be 0's to avoid affecting the
-  // parity check
-  assign masked_data = rx_data & ((1 << data_width_q) - 1);
-
   assign baud_tick      = (baud_cnt == (CLKS_PER_BIT - 1));
   assign baud_tick_half = (baud_cnt == ((CLKS_PER_BIT / 2) - 1));
   assign index_done     = (index >= data_width_q - 1);
   assign rx_msg_o       = rx_msg;
-  assign rx_msg_valid_o = rx_msg_valid;
-  assign busy_o         = busy;
+  assign done_o = done;
+  assign busy_o         = state != IDLE_RX;
   assign frame_err_o    = frame_err;
   assign parity_err_o   = parity_err;
 

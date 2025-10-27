@@ -4,7 +4,7 @@ interface uart_rx_bfm;
   bit  rst         ;
   bit  rx          ;
   wire busy        ;
-  wire rx_msg_valid;
+  wire done;
   // command signals
   bit[8:0] tx_data_bits;
   bit[1:0] tx_stop_bits;
@@ -39,6 +39,7 @@ interface uart_rx_bfm;
 
   task reset_uart_rx();
     rst = 1'b1;
+    rx = 1'b1;
     @(negedge clk);
     @(negedge clk);
     rst = 1'b0;
@@ -63,16 +64,15 @@ interface uart_rx_bfm;
       output bit       rx_frame_err_o
     );
     if (op_i == rst_op) begin
-      @(posedge clk);
+      @(posedge clk)
       rst = 1'b1;
-      rx = 1'b1;
+      rx = 1;
       @(posedge clk);
-      #1;
+      @(negedge clk);
       rst = 1'b0;
     end else begin
-      // drive the rx line
+      // Now start transmission
       @(negedge clk);
-
       tx_data_bits = tx_data_bits_i;
       tx_stop_bits = tx_stop_bits_i;
       tx_parity_bit = tx_parity_bit_i;
@@ -100,21 +100,32 @@ interface uart_rx_bfm;
       // stop bit/s
       for (integer idx = 0; idx < stop_bits; idx++ ) begin
         rx = tx_stop_bits[idx];
-        #(CLKS_PER_BIT * CLK_PERIOD);
+        if (idx < stop_bits-1) begin
+          #(CLKS_PER_BIT * CLK_PERIOD);
+        end else begin
+          #(CLKS_PER_BIT * CLK_PERIOD / 2);
+        end
       end
-      // wait unitl the uart is done receiveing
-      //while(!rx_msg_valid);
-      // get the outcome from the uart rx DUT
+      // the uart samples middle of the bits, so make sure rx goes idle after halfway
+      rx = 1;
+      do
+        @(negedge clk);
+      while (done == 0);
+      // capture results from DUT
       rx_data_bits_o = rx_data_bits;
       rx_parity_err_o = rx_parity_err;
       rx_frame_err_o = rx_frame_err;
+
     end
 
   endtask : send_op
 
+  bit busy_q;
+  // rising edge of busy signals a command start
   always @(posedge clk) begin : cmd_monitor
     static bit in_command = 0;
-    if (!busy && !rx) begin : start_high
+    busy_q <= busy;
+    if (!busy_q && busy) begin
       if (!in_command) begin : new_command
         command_monitor_h.write_to_monitor(
           tx_data_bits,
@@ -128,8 +139,8 @@ interface uart_rx_bfm;
         );
         in_command = 1;
       end : new_command
-    end : start_high
-    else // start low
+    end
+    else 
       in_command = 0;
   end : cmd_monitor
 
@@ -151,7 +162,7 @@ interface uart_rx_bfm;
   initial begin : result_monitor_thread
     forever begin : result_monitor
       @(posedge clk);
-      if (rx_msg_valid)
+      if (done)
         result_monitor_h.write_to_monitor(
           rx_data_bits,
           rx_parity_err,

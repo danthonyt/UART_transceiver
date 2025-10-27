@@ -23,8 +23,8 @@ class rx_scoreboard extends uvm_subscriber #(rx_result_transaction);
       send_op : begin
         predicted.rx_data_bits = cmd.tx_data_bits;
         predicted.rx_parity_err = cmd.parity_en && (
-          (cmd.parity_odd && ^({cmd.tx_data_bits,cmd.tx_parity_bit})) ||
-            (!cmd.parity_odd && !(^{cmd.tx_data_bits,cmd.tx_parity_bit}))
+          (cmd.parity_odd  && ^{cmd.tx_data_bits, cmd.tx_parity_bit} == 0) || // odd parity error if XOR=0
+          (!cmd.parity_odd && ^{cmd.tx_data_bits, cmd.tx_parity_bit} == 1)    // even parity error if XOR=1
         );
         if (cmd.stop_bits == 2'b01) // 1 stop bit
           predicted.rx_frame_err = ~cmd.tx_stop_bits[0];
