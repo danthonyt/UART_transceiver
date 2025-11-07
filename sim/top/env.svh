@@ -4,6 +4,7 @@ class env extends uvm_env;
    uart_agent     m_uart_agent;
    axil_agent     m_axil_agent;
    scoreboard     m_scoreboard;
+   virtual_sequencer m_virtual_sequencer;
 
    function new(string name = "env", uvm_component parent);
       super.new(name, parent);
@@ -16,13 +17,15 @@ class env extends uvm_env;
       m_uart_agent = uart_agent::type_id::create("m_uart_agent", this);
       m_axil_agent = axil_agent::type_id::create("m_axil_agent", this);
       m_scoreboard = scoreboard::type_id::create("m_scoreboard", this);
-      uvm_config_db #( uart_agent_config )::set( this , "m_uart_agent*" ,
-      "uart_agent_config" , m_uart_agent_cfg );
+      m_virtual_sequencer = virtual_sequencer::type_id::create("m_virtual_sequencer", this);
    endfunction
 
    virtual function void connect_phase(uvm_phase phase);
       // Connect monitor analysis ports to the scoreboard subscribers
-      m_uart_agent.m_monitor.ap.connect(m_scoreboard.uart_analysis_export);
-      m_axil_agent.m_monitor.ap.connect(m_scoreboard.axil_analysis_export);
+      m_uart_agent.mon_ap.connect(m_scoreboard.uart_mon_analysis_export);
+      m_uart_agent.drv_ap.connect(m_scoreboard.uart_drv_analysis_export);
+      m_axil_agent.ap.connect(m_scoreboard.axil_analysis_export);
+      m_virtual_sequencer.uart_seq = m_uart_agent.m_sequencer;
+      m_virtual_sequencer.axil_seq = m_axil_agent.m_sequencer;
    endfunction
 endclass

@@ -12,7 +12,6 @@ class axil_monitor extends uvm_monitor;
 
   function void build_phase(uvm_phase phase);
     axil_mon_ap  = new("axil_mon_ap",this);
-    m_config  = axil_agent_config::get_config(this);
     m_bfm = m_config.axil_mon_bfm;
     m_bfm.proxy = this;
   endfunction : build_phase

@@ -14,9 +14,6 @@ class env_config extends uvm_object;
 //------------------------------------------
 // Whether env analysis components are used:
   bit has_functional_coverage      = 0;
-  bit has_uart_functional_coverage = 0;
-  bit has_uart_scoreboard          = 0;
-  bit has_axil_scoreboard          = 0;
 // Configurations for the sub_components
   uart_agent_config m_uart_agent_cfg;
   axil_agent_config m_axil_agent_cfg;

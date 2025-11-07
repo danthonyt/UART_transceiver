@@ -1,4 +1,4 @@
-class uart_txn extends uvm_transaction;
+class uart_txn extends uvm_sequence_item;
   `uvm_object_utils(uart_txn)
   byte data  ;
   bit  stop  ;
@@ -7,10 +7,10 @@ class uart_txn extends uvm_transaction;
     uart_txn copied_transaction_h;
 
     if(rhs == null)
-      `uvm_fatal("UART TRANSACTION", "Tried to copy from a null pointer")
+      `uvm_fatal(get_type_name(), "Tried to copy from a null pointer")
 
     if(!$cast(copied_transaction_h,rhs))
-      `uvm_fatal("UART TRANSACTION", "Tried to copy wrong type.")
+      `uvm_fatal(get_type_name(), "Tried to copy wrong type.")
 
     super.do_copy(rhs); // copy all parent class data
 
@@ -33,7 +33,7 @@ class uart_txn extends uvm_transaction;
     uart_txn compared_transaction_h;
     bit   same;
 
-    if (rhs == null) `uvm_fatal("UART TRANSACTION",
+    if (rhs == null) `uvm_fatal(get_type_name(),
       "Tried to do comparison to a null pointer");
 
     if (!$cast(compared_transaction_h,rhs))

@@ -9,11 +9,11 @@ class uart_agent extends uvm_component;
 //------------------------------------------
 // Component Members
 //------------------------------------------
-  uvm_analysis_port #(uart_seq_item) ap;
-  uart_monitor          m_monitor     ;
-  uart_sequencer        m_sequencer   ;
-  uart_driver           m_driver      ;
-  uart_coverage_monitor m_fcov_monitor;
+  uvm_analysis_port #(uart_txn) drv_ap;
+  uvm_analysis_port #(uart_txn) mon_ap;
+  uart_monitor   m_monitor  ;
+  uart_sequencer m_sequencer;
+  uart_driver    m_driver   ;
 //------------------------------------------
 // Methods
 //------------------------------------------
@@ -24,30 +24,26 @@ class uart_agent extends uvm_component;
 
   function void build_phase( uvm_phase phase );
     if( !uvm_config_db #( uart_agent_config )::get(this, "",
-        "env_config",m_env_cfg) ) `uvm_fatal("UART_AGENT","could not get env config!")
-    // extract uart agent config from env config
+        "env_config",m_env_cfg) ) `uvm_fatal(get_type_name(),"could not get env config!")
     m_cfg = m_env_cfg.m_uart_agent_cfg;
+
 // Monitor is always present
     m_monitor = uart_monitor::type_id::create("m_monitor", this);
+    m_monitor.m_cfg = m_cfg;
 // Only build the driver and sequencer if active
     if(m_cfg.active == UVM_ACTIVE) begin
       m_driver = uart_driver::type_id::create("m_driver", this);
+      m_driver.m_cfg = m_cfg;
       m_sequencer = uart_sequencer::type_id::create("m_sequencer", this);
-    end
-    if(m_cfg.has_functional_coverage) begin
-      m_fcov_monitor =
-        uart_coverage_monitor::type_id::create("m_fcov_monitor", this);
     end
   endfunction: build_phase
 
   function void connect_phase(uvm_phase phase);
-    ap = m_monitor.ap;
+    mon_ap = m_monitor.ap;
+    drv_ap = m_driver.ap;
 // Only connect the driver and the sequencer if active
     if(m_cfg.active == UVM_ACTIVE) begin
       m_driver.seq_item_port.connect(m_sequencer.seq_item_export);
-    end
-    if(m_cfg.has_functional_coverage) begin
-      m_monitor.ap.connect(m_fcov_monitor.analysis_export);
     end
   endfunction: connect_phase
 

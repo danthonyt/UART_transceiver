@@ -10,7 +10,6 @@ class axil_driver extends uvm_driver #(axil_seq_item);
   endfunction : new
 
   function void build_phase(uvm_phase phase);
-    m_config  = axil_agent_config::get_config(this);
     m_bfm = m_config.axil_drv_bfm;
     m_bfm.proxy = this;
   endfunction : build_phase
