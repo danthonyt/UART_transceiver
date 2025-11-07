@@ -22,9 +22,9 @@ class env extends uvm_env;
 
    virtual function void connect_phase(uvm_phase phase);
       // Connect monitor analysis ports to the scoreboard subscribers
-      m_uart_agent.mon_ap.connect(m_scoreboard.uart_mon_analysis_export);
-      m_uart_agent.drv_ap.connect(m_scoreboard.uart_drv_analysis_export);
-      m_axil_agent.ap.connect(m_scoreboard.axil_analysis_export);
+      m_uart_agent.mon_ap.connect(m_scoreboard.uart_mon_imp);
+      m_uart_agent.drv_ap.connect(m_scoreboard.uart_drv_imp);
+      m_axil_agent.ap.connect(m_scoreboard.axil_imp);
       m_virtual_sequencer.uart_seq = m_uart_agent.m_sequencer;
       m_virtual_sequencer.axil_seq = m_axil_agent.m_sequencer;
    endfunction

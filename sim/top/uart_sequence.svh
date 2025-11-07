@@ -1,10 +1,10 @@
 class uart_sequence extends uvm_sequence #(uart_txn);
    `uvm_object_utils (uart_sequence)
 
-   uart_sequence  m_uart_seq;
+   uart_legal_txn  m_uart_seq_item;
    int unsigned      n_times = 10;
 
-   function new (string name = "uart_sequence");
+   function new (string name = "uart_legal_txn");
       super.new (name);
    endfunction
 
@@ -16,12 +16,12 @@ class uart_sequence extends uvm_sequence #(uart_txn);
 
    task body ();
       `uvm_info (get_type_name(), $sformatf ("Starting body of %s", this.get_name()), UVM_MEDIUM)
-      m_uart_seq = uart_sequence::type_id::create ("m_uart_seq");
+      m_uart_seq_item = uart_legal_txn::type_id::create ("m_uart_seq_item");
 
       repeat (n_times) begin
-         start_item (m_uart_seq);
-         assert (m_uart_seq.randomize ());
-         finish_item (m_uart_seq);
+         start_item (m_uart_seq_item);
+         assert (m_uart_seq_item.randomize ());
+         finish_item (m_uart_seq_item);
       end
       `uvm_info (get_type_name (), $sformatf ("Sequence %s is over", this.get_name()), UVM_MEDIUM)
    endtask
