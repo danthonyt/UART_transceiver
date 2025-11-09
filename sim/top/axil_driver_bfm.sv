@@ -1,6 +1,7 @@
-interface axil_driver_bfm(input axil_syscon_if axil_if); // DUT interface as input
-  import axil_pkg::*;
 
+
+interface axil_driver_bfm(axil_syscon_if axil_if); // DUT interface as input
+import axil_pkg::*;
   axil_driver proxy; // pointer to your UVM driver
 
   // UART timing
@@ -17,12 +18,12 @@ interface axil_driver_bfm(input axil_syscon_if axil_if); // DUT interface as inp
         axil_if.araddr_i = item.addr;
         axil_if.arvalid_i = 1;
         // read address handshake
-        wait(axil_if.arready_o)
+        wait(axil_if.arready_o);
         @(negedge axil_if.aclk)
         axil_if.arvalid_i = 0;
         axil_if.rready_i = 1;
         // read data handshake
-        wait(axil_if.rvalid_o)
+        wait(axil_if.rvalid_o);
         @(negedge axil_if.aclk)
         axil_if.rready_i = 0;
         
@@ -34,25 +35,22 @@ interface axil_driver_bfm(input axil_syscon_if axil_if); // DUT interface as inp
         axil_if.awvalid_i = 1;
 
         // write address handshake
-        wait(axil_if.awready_o)
+        wait(axil_if.awready_o);
         @(negedge axil_if.aclk)
         axil_if.awvalid_i = 0;
         axil_if.wvalid_i = 1;
         axil_if.wdata_i = item.wdata;
 
         // write data handshake
-        wait(axil_if.wready_o)
+        wait(axil_if.wready_o);
         @(negedge axil_if.aclk)
         axil_if.wvalid_i = 0;
         axil_if.bready_i = 1;
 
         // write response handshake
-        wait(axil_if.bvalid_o)
+        wait(axil_if.bvalid_o);
         @(negedge axil_if.aclk)
         axil_if.bready_i = 0;
     end
-    else begin
-        `uvm_error("AXI LITE DRIVER BFM", "Unknown sequence item op!")
-    end
   endtask
-endinterface
+endinterface : axil_driver_bfm

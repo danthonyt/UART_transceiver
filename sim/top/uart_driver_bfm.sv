@@ -1,4 +1,5 @@
-interface uart_driver_bfm(input uart_syscon_if uart_if); // DUT interface as input
+
+interface uart_driver_bfm(uart_syscon_if uart_if); // DUT interface as input
   import uart_pkg::*;
 
   uart_driver proxy; // pointer to your UVM driver

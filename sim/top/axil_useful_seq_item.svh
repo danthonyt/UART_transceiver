@@ -7,17 +7,16 @@ class axil_useful_seq_item extends axil_seq_item;
     else
       addr inside {32'h4, 32'hC};       // Only writable addresses
 
-    // Only constrain wdata for WRITE operations
-    if (op == WRITE) begin
-      if (addr == 32'hC)
-        wdata inside {[0:255]};          // TX FIFO only uses 8-bit
-      else if (addr == 32'h4)
-        wdata[31:2] == 0;                // Control register only uses bits [1:0]
-    end
+     // Only constrain wdata for WRITE operations
+  if ((op == WRITE) && (addr == 32'hC))
+    wdata inside {[0:255]};
+
+  if ((op == WRITE) && (addr == 32'h4))
+    wdata[31:2] == 0;
   }
 
   function new (string name = "");
     super.new(name);
   endfunction : new
 
-endclass : axil_seq_item
+endclass : axil_useful_seq_item

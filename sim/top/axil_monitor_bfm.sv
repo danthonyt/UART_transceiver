@@ -1,6 +1,8 @@
-interface axil_monitor_bfm(input axil_syscon_if axil_if); // DUT interface as input
-  import axil_pkg::*;
 
+  
+interface axil_monitor_bfm(axil_syscon_if axil_if); // DUT interface as input
+
+import axil_pkg::*;
   axil_monitor proxy; // pointer to your UVM driver
 
   // UART timing
@@ -36,8 +38,6 @@ interface axil_monitor_bfm(input axil_syscon_if axil_if); // DUT interface as in
           txn.wdata = axil_if.wdata_i;
         wait(axil_if.bready_i && axil_if.bvalid_o)
           txn.resp = axil_if.rresp_o;
-      end else begin
-        `uvm_error("AXI LITE MONITOR BFM", "unknown transaction op!")
       end
       notify_transaction(txn);
 

@@ -1,6 +1,6 @@
-interface uart_monitor_bfm(input uart_syscon_if uart_if); // DUT interface as input
-  import uart_pkg::*;
 
+interface uart_monitor_bfm(uart_syscon_if uart_if); // DUT interface as input
+  import uart_pkg::*;
   uart_monitor proxy; // pointer to your UVM monitor
 
   // UART timing
@@ -34,4 +34,4 @@ interface uart_monitor_bfm(input uart_syscon_if uart_if); // DUT interface as in
       end
     end
   endtask
-endinterface
+endinterface : uart_monitor_bfm

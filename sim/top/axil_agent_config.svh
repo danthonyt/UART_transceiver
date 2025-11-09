@@ -1,6 +1,5 @@
 class axil_agent_config extends uvm_object;
 
-  // UVM Factory Registration Macro
   `uvm_object_utils(axil_agent_config)
 
   // BFM virtual interfaces

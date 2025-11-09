@@ -13,7 +13,7 @@ class test_base extends uvm_test;
 // Component Members
 //------------------------------------------
 // The environment class
-  uart_env m_env;
+  env m_env;
 // Configuration objects
   env_config        m_env_cfg ;
   uart_agent_config m_uart_cfg;
@@ -53,7 +53,7 @@ class test_base extends uvm_test;
 
     uvm_config_db #(env_config)::set(this, "*", "env_config",
       m_env_cfg);
-    m_env = uart_env::type_id::create("m_env", this);
+    m_env = env::type_id::create("m_env", this);
   endfunction: build_phase
 
 endclass: test_base

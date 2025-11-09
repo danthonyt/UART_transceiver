@@ -1,4 +1,4 @@
-class axil_seq_item extends uvm_sequnce_item;
+class axil_seq_item extends uvm_sequence_item;
   `uvm_object_utils(axil_seq_item)
   rand axil_op_e op  ;
   rand u32       addr;

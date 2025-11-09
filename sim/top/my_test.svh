@@ -14,4 +14,4 @@ class my_test extends test_base;
 		phase.drop_objection (this);
 	endtask
 
-endclass: test_base
+endclass: my_test
