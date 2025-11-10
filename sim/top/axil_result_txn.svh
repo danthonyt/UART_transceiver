@@ -59,8 +59,14 @@ class axil_result_txn extends uvm_transaction;
 
   function string convert2string();
     string s;
-    s = $sformatf("op: %s addr: 0x%2h rdata: 0x%8h wdata: 0x%8h resp: %2b",
-      op.name(), addr, rdata, wdata, resp);
+    if (op == WRITE) begin
+       s = $sformatf("op: %s addr: 0x%2h wdata: 0x%8h resp: %2b",
+      op.name(), addr, wdata, resp);
+    end else begin
+       s = $sformatf("op: %s addr: 0x%2h rdata: 0x%8h resp: %2b",
+      op.name(), addr, rdata, resp);
+    end
+   
     return s;
   endfunction : convert2string
 

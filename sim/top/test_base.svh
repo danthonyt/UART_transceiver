@@ -14,10 +14,11 @@ class test_base extends uvm_test;
 //------------------------------------------
 // The environment class
   env m_env;
-// Configuration objects
+  // Configuration objects
   env_config        m_env_cfg ;
   uart_agent_config m_uart_cfg;
   axil_agent_config m_axil_cfg;
+
 //------------------------------------------
 // Methods
 //------------------------------------------
@@ -26,13 +27,14 @@ class test_base extends uvm_test;
     super.new(name, parent);
   endfunction
 
+  
+
 // Build the env, create the env configuration
 // including any sub configurations
   function void build_phase(uvm_phase phase);
+  
 // env configuration
     m_env_cfg = env_config::type_id::create("m_env_cfg");
-    m_env_cfg.has_uart_scoreboard = 1;
-    m_env_cfg.has_axil_scoreboard = 1;
 
 // AXI Lite configuration
     m_axil_cfg = axil_agent_config::type_id::create("m_axil_cfg");
@@ -55,5 +57,6 @@ class test_base extends uvm_test;
       m_env_cfg);
     m_env = env::type_id::create("m_env", this);
   endfunction: build_phase
+
 
 endclass: test_base

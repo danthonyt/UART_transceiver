@@ -10,15 +10,17 @@ class axil_driver extends uvm_driver #(axil_seq_item);
   endfunction : new
 
   function void build_phase(uvm_phase phase);
-    m_bfm = m_config.axil_drv_bfm;
+      if( !uvm_config_db #( axil_agent_config )::get(this, "",
+        "axil_agent_config",m_config) ) `uvm_fatal(get_type_name(),"could not get config!")
+    m_bfm = m_config.drv_bfm;
     m_bfm.proxy = this;
   endfunction : build_phase
 
   task run_phase(uvm_phase phase);
     axil_seq_item item;
     forever begin
-      `uvm_info (get_type_name (), $sformatf ("Waiting for data from sequencer"), UVM_MEDIUM)
       seq_item_port.get_next_item (item);
+      `uvm_info(get_type_name(), item.convert2string(), UVM_MEDIUM)
       m_bfm.run(item);
       seq_item_port.item_done ();
     end

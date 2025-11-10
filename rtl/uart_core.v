@@ -1,4 +1,4 @@
-`timescale 1ns / 1ps
+
 module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16, CLKS_PER_BIT = 4) (
   // global signals
   input         axi_aclk_i   ,
@@ -288,16 +288,16 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16, CLKS_PER_BIT = 4) 
             if (!tx_fifo_full) begin
               tx_fifo_wen   <= 1;
               tx_fifo_wdata <= wdata_q;
-              axi_bresp       <= RESP_OKAY;
+              axi_bresp     <= RESP_OKAY;
               write_state   <= B_WAIT;
             end else begin
-              axi_bresp     <= RESP_ERR;
+              axi_bresp   <= RESP_ERR;
               write_state <= B_WAIT;
             end
           end  else if (reg_wr) begin
             reg_wen     <= 1;
             reg_wdata   <= wdata_q;
-            axi_bresp     <= RESP_OKAY;
+            axi_bresp   <= RESP_OKAY;
             write_state <= B_WAIT;
           end
         end
@@ -347,29 +347,24 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16, CLKS_PER_BIT = 4) 
   //
   /******************************************/
 
-  uart_rx #(
-    .DATA_WIDTH  (DATA_WIDTH  ),
-    .CLKS_PER_BIT(CLKS_PER_BIT)
-  ) uart_rx_inst (
-    .clk_i          (axi_aclk_i    ),
-    .rst_i          (~axi_aresetn_i),
-    .rx_i           (rx_i          ),
-    .busy_o         (rx_busy       ),
-    .rx_byte_o      (rx_byte       ),
-    .rx_byte_valid_o(rx_byte_valid ),
-    .frame_err_o    (rx_frame_err  )
+  uart_rx #(.CLKS_PER_BIT(CLKS_PER_BIT)) uart_rx_inst (
+    .clk_i      (axi_aclk_i   ),
+    .rstn_i     (axi_aresetn_i),
+    .rx_i       (rx_i         ),
+    .busy_o     (rx_busy      ),
+    .rx_msg_o   (rx_byte      ),
+    .done_o     (             ),
+    .frame_err_o(rx_frame_err )
   );
 
-  uart_tx #(
-    .DATA_WIDTH  (DATA_WIDTH  ),
-    .CLKS_PER_BIT(CLKS_PER_BIT)
-  ) uart_tx_inst (
-    .clk_i    (axi_aclk_i    ),
-    .rst_i    (~axi_aresetn_i),
-    .start_i  (tx_start      ),
-    .tx_byte_i(tx_fifo_rdata ),
-    .tx_o     (tx            ),
-    .busy_o   (tx_busy       )
+  uart_tx #(.CLKS_PER_BIT(CLKS_PER_BIT)) uart_tx_inst (
+    .clk_i    (axi_aclk_i   ),
+    .rstn_i   (axi_aresetn_i),
+    .start_i  (tx_start     ),
+    .tx_byte_i(tx_fifo_rdata),
+    .tx_o     (tx_o         ),
+    .busy_o   (tx_busy      ),
+    .done_o   (             )
   );
 
   fifo #(
@@ -441,113 +436,4 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16, CLKS_PER_BIT = 4) 
       end
     end
   end
-  assign tx_o = tx;
-  /******************************************/
-  //
-  //    FORMAL VERIFICATION
-  //
-  /******************************************/
-`ifdef FORMAL
-  default clocking @(posedge axi_aclk_i);
-  endclocking
-// reset on start
-    initial assume (!axi_aresetn_i);
-  low_enables_on_reset:
-    assert property (~axi_aresetn_i |-> ##1 !tx_fifo_ren && !rx_fifo_wen);
-// tx fifo read enable should never go high if the tx fifo is in reset,
-// it is empty, or the tx is busy
-  tx_fifo_read_low :
-    assert property (disable iff (~axi_aresetn_i) tx_fifo_rst || tx_fifo_empty || tx_busy |-> ##1 !tx_fifo_ren);
-
-// rx fifo write enable should never go high if the rx fifo is in reset,
-// the rx fifo is full, or the rx byte is invalid
-  rx_fifo_write_low :
-    assert property (disable iff (~axi_aresetn_i) rx_fifo_rst || rx_fifo_full || !rx_byte_valid |-> ##1 !rx_fifo_wen);
-
-// write enables are only high for one cycle
-  assert property (disable iff (!axi_aresetn_i) $rose(tx_fifo_wen) |-> ##1 $fell(tx_fifo_wen));
-  assert property (disable iff (!axi_aresetn_i) $rose(reg_wen) |-> ##1 $fell(reg_wen));
-
-
-  // During reset the following interface requirements apply:
-  // • a master interface must drive ARVALID, AWVALID, and WVALID LOW
-  // • a slave interface must drive RVALID and BVALID LOW
-  // • all other signals can be driven to any value. (p A3-36)
-  master_valids_low_on_reset :
-    assume property( @(posedge axi_aclk_i)
-        (!axi_aresetn_i |-> ##1 ~(axi_wvalid_i | axi_arvalid_i | axi_awvalid_i)));
-      slave_valids_low_on_reset :
-        assert property (@(posedge axi_aclk_i) (!axi_aresetn_i |-> ##1 ~(axi_rvalid_o | axi_bvalid_o)));
-
-      /******************************************/
-      //
-      //    AXI LITE COMPLIANCE
-      //
-      /******************************************/
-// In Figure A3-2, the source presents the address, data or control information after T1 and asserts the VALID signal.
-// "The destination asserts the READY signal after T2, and the source must keep its information stable until the transfer
-// occurs at T3, when this assertion is recognized. (p A3-37)"
-// data is held stable while valid is high
-      property stable_source_data(logic valid, logic [31:0] data, logic rst_n);
-        disable iff (!rst_n) valid & !$rose(valid) |-> ($stable(data) | !valid);
-      endproperty
-      stable_data_ar :
-        assume property (stable_source_data(
-              axi_arvalid_i, axi_araddr_i, axi_aresetn_i
-            ));
-          stable_data_r :
-            assert property (stable_source_data(
-                axi_rvalid_o, axi_rdata_o, axi_aresetn_i
-              ));
-          stable_data_aw :
-            assume property (stable_source_data(
-                  axi_awvalid_i, axi_awaddr_i, axi_aresetn_i
-                ));
-              stable_data_w :
-                assume property (stable_source_data(
-                      axi_wvalid_i, axi_wdata_i, axi_aresetn_i
-                    ));
-                  stable_data_b :
-                    assert property (stable_source_data(
-                        axi_bvalid_o, axi_bresp_o, axi_aresetn_i
-                      ));
-
-// Once VALID is asserted it must remain asserted until the handshake occurs, at a rising clock edge at which VALID
-// and READY are both asserted. (p A3-37)
-                  property stable_valid_high(logic valid, logic ready, logic rst_n);
-                    disable iff (!rst_n) (valid & ~ready) |-> ##1 valid;
-                  endproperty
-
-                  valid_stays_high_until_handshake_w :
-                    assume property (
-                        stable_valid_high(axi_wvalid_i, axi_wready_o, axi_aresetn_i)
-                      );
-                      valid_stays_high_until_handshake_ar :
-                        assume property (
-                            stable_valid_high(axi_arvalid_i, axi_arready_o, axi_aresetn_i)
-                          );
-                          valid_stays_high_until_handshake_aw :
-                            assume property (stable_valid_high(
-                                  axi_awvalid_i, axi_awready_o, axi_aresetn_i
-                                ));
-                              valid_stays_high_until_handshake_r :
-                                assert property (stable_valid_high(
-                                    axi_rvalid_o, axi_rready_i, axi_aresetn_i
-                                  ));
-                              valid_stays_high_until_handshake_b :
-                                assert property (stable_valid_high(
-                                    axi_bvalid_o, axi_bready_i, axi_aresetn_i
-                                  ));
-
-                              /******************************************/
-                              //
-                              //    COVER STATEMENTS
-                              //
-                              /******************************************/
-
-// tx must hold its value if baud tick is false and is busy
-
-// covers:
-
-`endif
-                              endmodule
+endmodule

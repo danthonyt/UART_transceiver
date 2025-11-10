@@ -10,7 +10,7 @@ class my_test extends test_base;
   task run_phase (uvm_phase phase);
 		my_virtual_seq m_vseq = my_virtual_seq::type_id::create ("m_vseq");
 		phase.raise_objection (this);
-		m_vseq.start (m_env.m_virtual_seqr);
+		m_vseq.start (m_env.m_virtual_sequencer);
 		phase.drop_objection (this);
 	endtask
 

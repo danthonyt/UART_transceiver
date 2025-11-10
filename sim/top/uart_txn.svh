@@ -1,7 +1,7 @@
 class uart_txn extends uvm_sequence_item;
   `uvm_object_utils(uart_txn)
-  byte data  ;
-  bit  stop  ;
+  rand byte data  ;
+  rand bit  stop  ;
 
   function void do_copy(uvm_object rhs);
     uart_txn copied_transaction_h;
@@ -49,7 +49,7 @@ class uart_txn extends uvm_sequence_item;
 
   function string convert2string();
     string s;
-    s = $sformatf("data byte: 0x%2h stop bits: %b ",
+    s = $sformatf("data byte: 0x%2h stop bit: %b",
       data, stop);
     return s;
   endfunction : convert2string

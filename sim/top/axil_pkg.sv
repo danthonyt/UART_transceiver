@@ -1,10 +1,9 @@
 package axil_pkg;
   import uvm_pkg::*;
   `include "uvm_macros.svh"
-  typedef bit[31:0] u32;
   typedef enum {READ, WRITE} axil_op_e;
+  import common_pkg::*;
   
-
   `include "axil_result_txn.svh"
   `include "axil_seq_item.svh"
   typedef uvm_sequencer#(axil_seq_item) axil_sequencer;
@@ -13,6 +12,7 @@ package axil_pkg;
   `include "axil_driver.svh"
   `include "axil_monitor.svh"
   
-  `include "axil_agent.svh"
   `include "axil_agent_config.svh"
+  `include "axil_agent.svh"
+  
 endpackage : axil_pkg

@@ -11,12 +11,12 @@ module top_tb ();
 
   // Generate a 50 MHz clock
   initial clk = 0;
-  always #10 clk = ~clk;  // 20ns period
+  always #10ns clk = ~clk;  // 20ns period
 
   // Generate a reset pulse
   initial begin
     rst_n = 0;
-    #50;
+    #50ns;
     rst_n = 1;  // release reset
   end
 
@@ -28,22 +28,22 @@ module top_tb ();
   uart_core_inst (
     .axi_aclk_i(clk),
     .axi_aresetn_i(rst_n),
-    .axi_araddr_i(axil_if.axi_araddr_i),
-    .axi_arvalid_i(axil_if.axi_arvalid_i),
-    .axi_arready_o(axil_if.axi_arready_o),
-    .axi_rdata_o(axil_if.axi_rdata_o),
-    .axi_rresp_o(axil_if.axi_rresp_o),
-    .axi_rvalid_o(axil_if.axi_rvalid_o),
-    .axi_rready_i(axil_if.axi_rready_i),
-    .axi_awvalid_i(axil_if.axi_awvalid_i),
-    .axi_awready_o(axil_if.axi_awready_o),
-    .axi_awaddr_i(axil_if.axi_awaddr_i),
-    .axi_wvalid_i(axil_if.axi_wvalid_i),
-    .axi_wready_o(axil_if.axi_wready_o),
-    .axi_wdata_i(axil_if.axi_wdata_i),
-    .axi_bvalid_o(axil_if.axi_bvalid_o),
-    .axi_bready_i(axil_if.axi_bready_i),
-    .axi_bresp_o(axil_if.axi_bresp_o),
+    .axi_araddr_i(axil_if.araddr_i),
+    .axi_arvalid_i(axil_if.arvalid_i),
+    .axi_arready_o(axil_if.arready_o),
+    .axi_rdata_o(axil_if.rdata_o),
+    .axi_rresp_o(axil_if.rresp_o),
+    .axi_rvalid_o(axil_if.rvalid_o),
+    .axi_rready_i(axil_if.rready_i),
+    .axi_awvalid_i(axil_if.awvalid_i),
+    .axi_awready_o(axil_if.awready_o),
+    .axi_awaddr_i(axil_if.awaddr_i),
+    .axi_wvalid_i(axil_if.wvalid_i),
+    .axi_wready_o(axil_if.wready_o),
+    .axi_wdata_i(axil_if.wdata_i),
+    .axi_bvalid_o(axil_if.bvalid_o),
+    .axi_bready_i(axil_if.bready_i),
+    .axi_bresp_o(axil_if.bresp_o),
     .rx_i(uart_if.rx),
     .tx_o(uart_if.tx)
   );

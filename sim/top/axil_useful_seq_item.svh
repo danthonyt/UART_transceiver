@@ -1,5 +1,5 @@
 class axil_useful_seq_item extends axil_seq_item;
-  `uvm_object_utils(axil_seq_item)
+  `uvm_object_utils(axil_useful_seq_item)
   // Constraint block
   constraint addr_wdata_c {
     if (op == READ)

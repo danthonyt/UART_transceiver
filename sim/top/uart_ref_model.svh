@@ -3,7 +3,7 @@ class uart_ref_model extends uvm_object;
 `uvm_object_utils(uart_ref_model)
 // Mirrors DUT registers
   u32 status ; // 0x00 status_reg = {28'd0, tx_fifo_empty, tx_fifo_full, rx_fifo_empty, rx_fifo_full}; RO
-  u32 control; // 0x04 control_reg = {30'd0, tx_fifo_rst, rx_fifo_rst}; WO
+  // 0x04 control_reg = {30'd0, tx_fifo_rst, rx_fifo_rst}; WO
 
 // FIFO state
   localparam int FIFO_DEPTH = 16;
@@ -21,32 +21,47 @@ class uart_ref_model extends uvm_object;
 // Register read/write functions
 // -----------------------------
 
-  function u32 read_register(u32 addr);
-    byte data;
+  function void read_register(input u32 addr, output bit[1:0] resp, output u32 rdata);
+    byte fifo_rdata;
     case (addr)
-      32'h0 : return status;
-      32'h8 : begin // RX FIFO read
-        if (!rx_fifo.try_get(data))
-          data = 0; // FIFO empty
-        update_status();
-        return {24'd0, data};
+      32'h0 : begin
+        rdata = status;
+        resp = RESP_OKAY;
       end
-      default : return 0;
+      32'h8 : begin // RX FIFO read
+        if (!rx_fifo.try_get(fifo_rdata)) begin
+          rdata = 0; // FIFO empty
+          resp = RESP_ERR;
+        end else begin
+          rdata = {24'd0, fifo_rdata};
+          resp = RESP_OKAY;
+        end
+        update_status();
+      end
+      default : begin
+        rdata = 0; 
+        resp = RESP_ERR;
+      end
     endcase
   endfunction
 
-  function void write_register(u32 addr, u32 wdata);
+  function void write_register(input u32 addr, input u32 wdata, output bit[1:0] resp);
     case (addr)
       32'h4 : begin // Control register
-        control = wdata;
+        resp = RESP_OKAY;
         if (wdata[0]) reset_rx_fifo();
         if (wdata[1]) reset_tx_fifo();
       end
       32'hC : begin // TX FIFO write
-        if (!tx_fifo.try_put(wdata[7:0]))
-          `uvm_warning("TX FIFO FULL", "TX FIFO full, data dropped");
+        if (!tx_fifo.try_put(wdata[7:0])) begin
+          resp = RESP_ERR;
+        end else begin
+          resp = RESP_OKAY;
+        end
       end
-      default : ;
+      default : begin
+        resp = RESP_ERR;
+      end
     endcase
     update_status();
   endfunction
@@ -84,7 +99,7 @@ class uart_ref_model extends uvm_object;
 // -----------------------------
 // Status register update
 // -----------------------------
-  function update_status();
+  function void update_status();
     bit rx_fifo_full = rx_fifo.num() == FIFO_DEPTH;
     bit rx_fifo_empty = rx_fifo.num() == 0;
     bit tx_fifo_full = tx_fifo.num() == FIFO_DEPTH;

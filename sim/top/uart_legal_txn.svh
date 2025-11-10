@@ -6,6 +6,7 @@ class uart_legal_txn extends uart_txn;
   endfunction
 
   constraint uart_legal_txn {
+    data inside {[8'h00:8'hff]};
     stop == 1;
   };
 

@@ -11,16 +11,21 @@ class uart_monitor extends uvm_monitor;
   endfunction : new
 
   function void build_phase(uvm_phase phase);
+    if( !uvm_config_db #( uart_agent_config )::get(this, "",
+        "uart_agent_config",m_config) ) `uvm_fatal(get_type_name(),"could not get config!")
     ap  = new("ap",this);
-    m_bfm = m_config.uart_mon_bfm;
+    m_bfm = m_config.mon_bfm;
     m_bfm.proxy = this;
   endfunction : build_phase
 
   task run_phase(uvm_phase phase);
-    m_bfm.run();
+    forever begin
+      m_bfm.run();
+    end
   endtask
 
   function void notify_transaction(uart_txn item);
+    `uvm_info(get_type_name(), item.convert2string(), UVM_MEDIUM)
     ap.write(item);
   endfunction : notify_transaction
 

@@ -10,7 +10,10 @@ interface uart_driver_bfm(uart_syscon_if uart_if); // DUT interface as input
 
   // Main BFM task
   // runs once per sequence item
-  task run(uart_seq_item uart_msg);
+  task run(uart_txn uart_msg);
+    init_uart_signals();
+    // delay until reset is released
+    wait (uart_if.rst_n == 1);
     // drive start bit
     @(negedge uart_if.clk)
       uart_if.rx = 0;
@@ -26,8 +29,12 @@ interface uart_driver_bfm(uart_syscon_if uart_if); // DUT interface as input
     uart_if.rx = uart_msg.stop;
     repeat(CLKS_PER_BIT) @(negedge uart_if.clk);
     // put the driven transaction on the ap for use by the ref model
-    notify_transaction(uart_msg);
+    proxy.notify_transaction(uart_msg);
     // drive the line back to idle
+    uart_if.rx = 1;
+  endtask
+
+  task init_uart_signals();
     uart_if.rx = 1;
   endtask
 endinterface

@@ -5,7 +5,6 @@ class uart_agent extends uvm_component;
 // Data Members
 //------------------------------------------
   uart_agent_config m_cfg    ;
-  env_config        m_env_cfg;
 //------------------------------------------
 // Component Members
 //------------------------------------------
@@ -24,16 +23,13 @@ class uart_agent extends uvm_component;
 
   function void build_phase( uvm_phase phase );
     if( !uvm_config_db #( uart_agent_config )::get(this, "",
-        "env_config",m_env_cfg) ) `uvm_fatal(get_type_name(),"could not get env config!")
-    m_cfg = m_env_cfg.m_uart_agent_cfg;
+        "uart_agent_config",m_cfg) ) `uvm_fatal(get_type_name(),"could not get config!")
 
 // Monitor is always present
     m_monitor = uart_monitor::type_id::create("m_monitor", this);
-    m_monitor.m_cfg = m_cfg;
 // Only build the driver and sequencer if active
     if(m_cfg.active == UVM_ACTIVE) begin
       m_driver = uart_driver::type_id::create("m_driver", this);
-      m_driver.m_cfg = m_cfg;
       m_sequencer = uart_sequencer::type_id::create("m_sequencer", this);
     end
   endfunction: build_phase

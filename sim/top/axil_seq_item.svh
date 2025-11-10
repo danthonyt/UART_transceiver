@@ -52,8 +52,13 @@ class axil_seq_item extends uvm_sequence_item;
 
   function string convert2string();
     string s;
-    s = $sformatf("op: %s addr: 0x%2h wdata: 0x%8h",
+    if (op == WRITE) begin
+      s = $sformatf("op: %s addr: 0x%2h wdata: 0x%8h",
       op.name(), addr, wdata);
+    end else begin
+      s = $sformatf("op: %s addr: 0x%2h",
+      op.name(), addr);
+    end
     return s;
   endfunction : convert2string
 
