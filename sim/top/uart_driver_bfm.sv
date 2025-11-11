@@ -28,8 +28,6 @@ interface uart_driver_bfm(uart_syscon_if uart_if); // DUT interface as input
     // drive stop bit
     uart_if.rx = uart_msg.stop;
     repeat(CLKS_PER_BIT) @(negedge uart_if.clk);
-    // put the driven transaction on the ap for use by the ref model
-    proxy.notify_transaction(uart_msg);
     // drive the line back to idle
     uart_if.rx = 1;
   endtask

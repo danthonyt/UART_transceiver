@@ -2,7 +2,7 @@ class axil_sequence extends uvm_sequence #(axil_seq_item);
    `uvm_object_utils (axil_sequence)
 
    axil_useful_seq_item  m_axil_seq;
-   int unsigned      n_times = 10;
+   int unsigned      n_times = 1;
 
    function new (string name = "axil_sequence");
       super.new (name);

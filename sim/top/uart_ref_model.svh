@@ -80,7 +80,7 @@ class uart_ref_model extends uvm_object;
     update_status();
   endfunction
 
-  function push_rx_fifo(byte t);
+  function void push_rx_fifo(byte t);
     if (!rx_fifo.try_put(t))
       `uvm_warning("RX FIFO FULL","RX FIFO full, byte dropped");
     update_status();

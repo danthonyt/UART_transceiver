@@ -20,7 +20,6 @@ class axil_driver extends uvm_driver #(axil_seq_item);
     axil_seq_item item;
     forever begin
       seq_item_port.get_next_item (item);
-      `uvm_info(get_type_name(), item.convert2string(), UVM_MEDIUM)
       m_bfm.run(item);
       seq_item_port.item_done ();
     end

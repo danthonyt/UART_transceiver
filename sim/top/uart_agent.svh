@@ -8,8 +8,8 @@ class uart_agent extends uvm_component;
 //------------------------------------------
 // Component Members
 //------------------------------------------
-  uvm_analysis_port #(uart_txn) drv_ap;
-  uvm_analysis_port #(uart_txn) mon_ap;
+  uvm_analysis_port #(uart_txn) tx_ap;
+  uvm_analysis_port #(uart_txn) rx_ap;
   uart_monitor   m_monitor  ;
   uart_sequencer m_sequencer;
   uart_driver    m_driver   ;
@@ -35,8 +35,8 @@ class uart_agent extends uvm_component;
   endfunction: build_phase
 
   function void connect_phase(uvm_phase phase);
-    mon_ap = m_monitor.ap;
-    drv_ap = m_driver.ap;
+    rx_ap = m_monitor.rx_ap;
+    tx_ap = m_monitor.tx_ap;
 // Only connect the driver and the sequencer if active
     if(m_cfg.active == UVM_ACTIVE) begin
       m_driver.seq_item_port.connect(m_sequencer.seq_item_export);
