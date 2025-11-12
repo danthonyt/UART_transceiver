@@ -39,7 +39,7 @@ class scoreboard extends uvm_scoreboard;
 
   // UART monitor callback
   virtual function void write_uart_tx(uart_txn txn);
-    u32 expected_byte;
+    byte expected_byte;
     expected_byte = ref_model.pop_tx_fifo();
     if (expected_byte != txn.data)
       `uvm_error(get_type_name(), $sformatf("UART mismatch! DUT: 0x%2h, REF: 0x%2h", txn.data, expected_byte))
@@ -63,7 +63,7 @@ class scoreboard extends uvm_scoreboard;
       // check proper resp and rdata
       ref_model.read_register(txn.addr, expected_resp, expected_rdata);
       if ((expected_rdata != txn.rdata) || (expected_resp != txn.resp))
-        `uvm_error(get_type_name(), $sformatf("AXI-Lite read mismatch! DUT: 0x%2h %2b, REF: 0x%2h %2b", txn.rdata, txn.resp, expected_rdata, expected_resp))
+        `uvm_error(get_type_name(), $sformatf("AXI-Lite read mismatch! DUT: addr: 0x%4h rdata: 0x%2h resp: %2b, REF: rdata: 0x%2h resp: %2b", txn.addr, txn.rdata, txn.resp, expected_rdata, expected_resp))
     end else begin
       `uvm_fatal(get_type_name(), "Axi-Lite unknown operation!")
     end

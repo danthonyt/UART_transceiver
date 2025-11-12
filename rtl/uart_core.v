@@ -197,6 +197,7 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16, CLKS_PER_BIT = 4) 
               read_state  <= R_READ2;
             end else begin
               // send an error; the fifo is empty
+              axi_rdata <= 0;
               axi_rresp  <= RESP_ERR;
               read_state <= R_READ4;
             end
@@ -353,7 +354,7 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16, CLKS_PER_BIT = 4) 
     .rx_i       (rx_i         ),
     .busy_o     (rx_busy      ),
     .rx_msg_o   (rx_byte      ),
-    .done_o     (             ),
+    .done_o     (rx_byte_valid),
     .frame_err_o(rx_frame_err )
   );
 

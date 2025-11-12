@@ -82,7 +82,7 @@ class uart_ref_model extends uvm_object;
 
   function void push_rx_fifo(byte t);
     if (!rx_fifo.try_put(t))
-      `uvm_warning("RX FIFO FULL","RX FIFO full, byte dropped");
+      `uvm_info("RX FIFO FULL", "RX FIFO full, byte dropped", UVM_MEDIUM)
     update_status();
   endfunction
 
@@ -90,7 +90,7 @@ class uart_ref_model extends uvm_object;
     byte t;
     if (!tx_fifo.try_get(t)) begin
       t = 0;
-      `uvm_warning("TX FIFO EMPTY","Tried to pop TX FIFO but empty");
+      `uvm_info("TX FIFO EMPTY", "Tried to pop TX FIFO but empty", UVM_LOW)
     end
     update_status();
     return t;
