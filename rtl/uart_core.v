@@ -125,13 +125,17 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16, CLKS_PER_BIT = 4) 
   always @(posedge axi_aclk_i) begin
     if (~axi_aresetn_i) begin
       control_reg <= 0;
-    end else if (reg_wen) begin
-      case (wraddr_q[3:0])
-        4'h4 : begin
-          control_reg <= reg_wdata;
-        end
-        default : ;
-      endcase
+    end else begin
+      // lower reset after one cycle
+      control_reg <= control_reg & ~32'h3;
+      if (reg_wen) begin
+        case (wraddr_q[3:0])
+          4'h4 : begin
+            control_reg <= reg_wdata;
+          end
+          default : ;
+        endcase
+      end
     end
   end
 
@@ -197,7 +201,7 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16, CLKS_PER_BIT = 4) 
               read_state  <= R_READ2;
             end else begin
               // send an error; the fifo is empty
-              axi_rdata <= 0;
+              axi_rdata  <= 0;
               axi_rresp  <= RESP_ERR;
               read_state <= R_READ4;
             end

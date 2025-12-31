@@ -15,7 +15,7 @@ class my_virtual_seq extends uvm_sequence;
   endtask
 
   task body();
-    repeat(100) begin
+    repeat(1000) begin
       m_axil_seq.start (p_sequencer.m_axil_seqr);
       m_uart_seq.start (p_sequencer.m_uart_seqr);
     end
