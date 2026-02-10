@@ -31,7 +31,6 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16, CLKS_PER_BIT = 4) 
 
   // tx uart signals
   reg  tx_start;
-  wire tx      ;
   wire tx_busy ;
   // rx uart signals
   wire                  rx_busy      ;
@@ -69,6 +68,11 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16, CLKS_PER_BIT = 4) 
   wire        tx_fifo_wr ;
   wire        reg_rd     ;
   wire        reg_wr     ;
+  // adresses:
+  // 32'h0 = status register
+  // 32'h4 = control register
+  // 32'h8 = rx fifo
+  // 32'hc = tx fifo
   /******************************************/
   //
   //  AXI LITE SIGNALS

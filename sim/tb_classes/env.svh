@@ -5,6 +5,7 @@ class env extends uvm_env;
   axil_agent        m_axil_agent       ;
   scoreboard        m_scoreboard       ;
   virtual_sequencer m_virtual_sequencer;
+  cov_collector     m_coverage_collector;
 
   env_config m_env_cfg;
 
@@ -19,6 +20,7 @@ class env extends uvm_env;
     m_uart_agent = uart_agent::type_id::create("m_uart_agent", this);
     m_axil_agent = axil_agent::type_id::create("m_axil_agent", this);
     m_scoreboard = scoreboard::type_id::create("m_scoreboard", this);
+    m_coverage_collector = cov_collector::type_id::create("m_coverage_collector",this);
     m_virtual_sequencer = virtual_sequencer::type_id::create("m_virtual_sequencer", this);
 
     // get env config from cdb
@@ -37,6 +39,11 @@ class env extends uvm_env;
     m_uart_agent.tx_ap.connect(m_scoreboard.uart_tx_imp);
     m_uart_agent.rx_ap.connect(m_scoreboard.uart_rx_imp);
     m_axil_agent.ap.connect(m_scoreboard.axil_imp);
+    if (m_env_cfg.has_functional_coverage) begin
+      m_uart_agent.tx_ap.connect(m_coverage_collector.uart_tx_imp);
+    m_uart_agent.rx_ap.connect(m_coverage_collector.uart_rx_imp);
+    m_axil_agent.ap.connect(m_coverage_collector.axil_imp);
+    end
     m_virtual_sequencer.m_uart_seqr = m_uart_agent.m_sequencer;
     m_virtual_sequencer.m_axil_seqr = m_axil_agent.m_sequencer;
   endfunction

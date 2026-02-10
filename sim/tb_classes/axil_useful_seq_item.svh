@@ -14,6 +14,9 @@ class axil_useful_seq_item extends axil_seq_item;
   if ((op == WRITE) && (addr == 32'h4))
     wdata[31:2] == 0;
   }
+  constraint data_rand{
+    wdata dist {32'd0 := 1, [32'd1:32'hfffffffe] :/ 1, 32'hffffffff := 1};
+  }
 
   function new (string name = "");
     super.new(name);

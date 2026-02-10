@@ -4,6 +4,7 @@ class axil_seq_item extends uvm_sequence_item;
   rand u32       addr;
   rand u32       wdata; // meaningful only for WRITE
 
+
   function void do_copy(uvm_object rhs);
     axil_seq_item copied_transaction_h;
 

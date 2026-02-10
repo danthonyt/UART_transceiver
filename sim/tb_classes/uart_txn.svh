@@ -3,6 +3,11 @@ class uart_txn extends uvm_sequence_item;
   rand byte data  ;
   rand bit  stop  ;
 
+  constraint data_dist{
+  data dist {8'd0 := 1, [8'd1:8'hfffe] :/ 1, 8'hffff := 1};
+  }
+  
+
   function void do_copy(uvm_object rhs);
     uart_txn copied_transaction_h;
 
