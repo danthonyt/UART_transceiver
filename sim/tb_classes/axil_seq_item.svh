@@ -5,6 +5,10 @@ class axil_seq_item extends uvm_sequence_item;
   rand u32       wdata; // meaningful only for WRITE
 
 
+    constraint data_rand{
+    wdata dist {32'd0 := 1, [32'd1:32'hfffffffe] :/ 1, 32'hffffffff := 1};
+  }
+  
   function void do_copy(uvm_object rhs);
     axil_seq_item copied_transaction_h;
 
