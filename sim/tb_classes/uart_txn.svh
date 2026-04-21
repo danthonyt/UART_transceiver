@@ -4,7 +4,7 @@ class uart_txn extends uvm_sequence_item;
   rand bit  stop  ;
 
   constraint data_dist{
-  data dist {8'd0 := 1, [8'd1:8'hfffe] :/ 1, 8'hffff := 1};
+  data dist {8'd0 := 1, [8'd1:8'hfe] :/ 1, 8'hff := 1};
   }
   
 

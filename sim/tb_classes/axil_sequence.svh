@@ -9,8 +9,9 @@ class axil_sequence extends uvm_sequence #(axil_seq_item);
    endfunction
 
    task pre_body ();
-      if (starting_phase != null)
-         starting_phase.raise_objection (this);
+      uvm_phase phase = get_starting_phase();
+      if (phase != null)
+         phase.raise_objection (this);
    endtask
 
    task body ();
@@ -24,7 +25,8 @@ class axil_sequence extends uvm_sequence #(axil_seq_item);
    endtask
 
    task post_body ();
-      if (starting_phase != null)
-         starting_phase.drop_objection (this);
+      uvm_phase phase = get_starting_phase();
+      if (phase != null)
+         phase.drop_objection (this);
    endtask
 endclass

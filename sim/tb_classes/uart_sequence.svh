@@ -9,8 +9,9 @@ class uart_sequence extends uvm_sequence #(uart_txn);
   endfunction
 
   task pre_body ();
-    if (starting_phase != null)
-      starting_phase.raise_objection (this);
+    uvm_phase phase = get_starting_phase();
+    if (phase != null)
+      phase.raise_objection (this);
   endtask
 
   task body ();
@@ -24,7 +25,8 @@ class uart_sequence extends uvm_sequence #(uart_txn);
   endtask
 
   task post_body ();
-    if (starting_phase != null)
-      starting_phase.drop_objection (this);
+    uvm_phase phase = get_starting_phase();
+    if (phase != null)
+      phase.drop_objection (this);
   endtask
 endclass

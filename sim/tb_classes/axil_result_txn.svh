@@ -1,4 +1,4 @@
-class axil_result_txn extends uvm_transaction;
+class axil_result_txn extends uvm_sequence_item;
   `uvm_object_utils(axil_result_txn)
 
   axil_op_e op;            // type of transaction
