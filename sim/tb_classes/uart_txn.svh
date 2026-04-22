@@ -1,6 +1,6 @@
 class uart_txn extends uvm_sequence_item;
   `uvm_object_utils(uart_txn)
-  rand byte data  ;
+  rand bit [7:0] data  ;
   rand bit  stop  ;
 
   constraint data_dist{

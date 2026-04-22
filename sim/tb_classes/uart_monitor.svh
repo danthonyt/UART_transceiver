@@ -25,12 +25,12 @@ class uart_monitor extends uvm_monitor;
   endtask
 
   function void notify_tx_transaction(uart_txn item);
-    `uvm_info(get_type_name(), {"transmit uart transaction:" ,item.convert2string()}, UVM_MEDIUM)
+    `uvm_info(get_type_name(), {"transmit uart transaction:" ,item.convert2string()}, UVM_HIGH)
     tx_ap.write(item);
   endfunction : notify_tx_transaction
 
   function void notify_rx_transaction(uart_txn item);
-    `uvm_info(get_type_name(), {"receive uart transaction:" ,item.convert2string()}, UVM_MEDIUM)
+    `uvm_info(get_type_name(), {"receive uart transaction:" ,item.convert2string()}, UVM_HIGH)
     rx_ap.write(item);
   endfunction : notify_rx_transaction
 

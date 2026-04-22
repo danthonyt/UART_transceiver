@@ -25,7 +25,7 @@ class axil_monitor extends uvm_monitor;
   endtask
 
   function void notify_transaction(axil_result_txn item);
-    `uvm_info(get_type_name(), item.convert2string(), UVM_MEDIUM)
+    `uvm_info(get_type_name(), item.convert2string(), UVM_HIGH)
     ap.write(item);
   endfunction : notify_transaction
 

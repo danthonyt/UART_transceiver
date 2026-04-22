@@ -5,5 +5,4 @@ interface uart_syscon_if(
 
   logic tx;
   logic rx;
-
 endinterface
