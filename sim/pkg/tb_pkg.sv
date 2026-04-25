@@ -4,6 +4,7 @@ package tb_pkg;
   import axil_pkg::*;
   import uart_pkg::*;
   import common_pkg::*;
+  import dut_params_pkg::*;
 
   
   `include "scoreboard.svh"

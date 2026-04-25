@@ -3,8 +3,7 @@ class axil_agent_config extends uvm_object;
   `uvm_object_utils(axil_agent_config)
 
   // BFM virtual interfaces
-  virtual axil_monitor_bfm mon_bfm;
-  virtual axil_driver_bfm drv_bfm;
+  virtual axil_syscon_if vif;
 
   //------------------------------------------
   // Data Members

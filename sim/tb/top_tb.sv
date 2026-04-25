@@ -4,6 +4,8 @@ module top_tb ();
   `include "uvm_macros.svh"
 
   import tb_pkg::*;
+  import common_pkg::*;
+  import dut_params_pkg::*;
 
   // Clock and reset
   logic clk  ;
@@ -21,9 +23,9 @@ module top_tb ();
   end
 
   uart_core # (
-    .DATA_WIDTH(8),
-    .FIFO_DEPTH(16),
-    .CLKS_PER_BIT(4)
+    .DATA_WIDTH(DATA_WIDTH),
+    .FIFO_DEPTH(FIFO_DEPTH),
+    .CLKS_PER_BIT(CLKS_PER_BIT)
   )
   uart_core_inst (
     .axi_aclk_i(clk),
@@ -50,20 +52,13 @@ module top_tb ();
 
   // axi lite 
   axil_syscon_if axil_if(.aclk(clk), .aresetn(rst_n));
-  axil_driver_bfm axil_driver_bfm_if(axil_if);
-  axil_monitor_bfm axil_monitor_bfm_if(axil_if);
   // uart 
   uart_syscon_if uart_if (.clk(clk), .rst_n(rst_n));
-  uart_driver_bfm uart_driver_bfm_if (uart_if);
-  uart_monitor_bfm uart_monitor_bfm_if (uart_if);
 
 
   initial begin
     uvm_config_db #(virtual axil_syscon_if)::set(null, "*", "axil_vif", axil_if);
-    uvm_config_db #(virtual uart_driver_bfm)::set(null, "*", "uart_drv_bfm", uart_driver_bfm_if);
-    uvm_config_db #(virtual uart_monitor_bfm)::set(null, "*", "uart_mon_bfm", uart_monitor_bfm_if);
-    uvm_config_db #(virtual axil_driver_bfm)::set(null, "*", "axil_drv_bfm", axil_driver_bfm_if);
-    uvm_config_db #(virtual axil_monitor_bfm)::set(null, "*", "axil_mon_bfm", axil_monitor_bfm_if);
+    uvm_config_db #(virtual axil_syscon_if)::set(null, "*", "uart_vif", uart_if);
     run_test("test_base");
   end
 
