@@ -4,11 +4,13 @@ class uart_ref_model extends uvm_object;
 // Mirrors DUT registers
   u32 status ; // 0x00 status_reg = {28'd0, tx_fifo_empty, tx_fifo_full, rx_fifo_empty, rx_fifo_full}; RO
   // 0x04 control_reg = {30'd0, tx_fifo_rst, rx_fifo_rst}; WO
+  bit [7:0] inflight_tx;
+  bit inflight_tx_valid = 0;
 
 // FIFO state
   localparam int FIFO_DEPTH = 16;
-  mailbox #(byte) tx_fifo; // TX bytes to be transmitted
-  mailbox #(byte) rx_fifo;// RX bytes received by DUT
+  mailbox #(bit [7:0]) tx_fifo; // TX bytes to be transmitted
+  mailbox #(bit [7:0]) rx_fifo;// RX bytes received by DUT
 
   function new(string name="uart_ref_model");
     super.new(name);
@@ -22,7 +24,7 @@ class uart_ref_model extends uvm_object;
 // -----------------------------
 
   function void read_register(input u32 addr, output bit[1:0] resp, output u32 rdata);
-    byte fifo_rdata;
+    bit [7:0] fifo_rdata;
     case (addr)
       32'h0 : begin
         rdata = status;
@@ -76,19 +78,27 @@ class uart_ref_model extends uvm_object;
   endfunction
 
   function void reset_tx_fifo();
+    // on reset save active tx byte if available
+    if (tx_fifo.num > 0) begin
+      tx_fifo.try_get(inflight_tx);
+      inflight_tx_valid = 1;
+    end
     tx_fifo = new(FIFO_DEPTH); // clear TX FIFO
     update_status();
   endfunction
 
-  function void push_rx_fifo(byte t);
+  function void push_rx_fifo(bit [7:0] t);
     if (!rx_fifo.try_put(t))
       `uvm_info("RX FIFO FULL", "RX FIFO full, byte dropped", UVM_MEDIUM)
     update_status();
   endfunction
 
-  function byte pop_tx_fifo();
-    byte t;
-    if (!tx_fifo.try_get(t)) begin
+  function bit [7:0] pop_tx_fifo();
+    bit [7:0] t;
+    if(inflight_tx_valid) begin
+      t = inflight_tx;
+      inflight_tx_valid = 0;
+    end else if (!tx_fifo.try_get(t)) begin
       t = 0;
       `uvm_info("TX FIFO EMPTY", "Tried to pop TX FIFO but empty", UVM_LOW)
     end

@@ -59,6 +59,7 @@ module top_tb ();
 
 
   initial begin
+    uvm_config_db #(virtual axil_syscon_if)::set(null, "*", "axil_vif", axil_if);
     uvm_config_db #(virtual uart_driver_bfm)::set(null, "*", "uart_drv_bfm", uart_driver_bfm_if);
     uvm_config_db #(virtual uart_monitor_bfm)::set(null, "*", "uart_mon_bfm", uart_monitor_bfm_if);
     uvm_config_db #(virtual axil_driver_bfm)::set(null, "*", "axil_drv_bfm", axil_driver_bfm_if);
