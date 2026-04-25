@@ -1,7 +1,6 @@
 package axil_pkg;
   import uvm_pkg::*;
   `include "uvm_macros.svh"
-  typedef enum {READ, WRITE} axil_op_e;
   import common_pkg::*;
   
   `include "axil_result_txn.svh"

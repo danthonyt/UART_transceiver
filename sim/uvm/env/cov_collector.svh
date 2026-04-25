@@ -57,8 +57,8 @@ class cov_collector extends uvm_component;
         bins others = {[32'd1:32'hFFFFFFFE]};
       }
       coverpoint txn.resp {
-        bins noErr = {RESP_OKAY};
-        bins Err = {RESP_ERR};
+        bins noErr = {OKAY};
+        bins Err = {SLVERR};
       }
       //cross txn.op, txn.resp;
   endgroup : axil_cov_grp

@@ -13,12 +13,12 @@ module top_tb ();
 
   // Generate a 50 MHz clock
   initial clk = 0;
-  always #10ns clk = ~clk;  // 20ns period
+  always #(CLK_PERIOD/2) clk = ~clk;  // 20ns period
 
   // Generate a reset pulse
   initial begin
     rst_n = 0;
-    #50ns;
+    #(CLK_PERIOD*5)
     rst_n = 1;  // release reset
   end
 
@@ -58,7 +58,9 @@ module top_tb ();
 
   initial begin
     uvm_config_db #(virtual axil_syscon_if)::set(null, "*", "axil_vif", axil_if);
-    uvm_config_db #(virtual axil_syscon_if)::set(null, "*", "uart_vif", uart_if);
+    uvm_config_db #(virtual uart_syscon_if)::set(null, "*", "uart_vif", uart_if);
+    uvm_config_db #(int)::set(null, "*", "clk_freq", CLK_FREQ);
+    uvm_config_db #(int)::set(null, "*", "baud_rate", BAUD_RATE);
     run_test("test_base");
   end
 

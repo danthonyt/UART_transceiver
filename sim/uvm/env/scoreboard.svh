@@ -8,7 +8,7 @@ class scoreboard extends uvm_scoreboard;
   `uvm_analysis_imp_decl(_axil)
 
   // Reference model
-  uart_ref_model ref_model;
+  ref_model m_ref;
   uart_txn uart_txn_q[$];
   axil_result_txn axil_txn_q[$];
   virtual axil_syscon_if vif;
@@ -30,7 +30,7 @@ class scoreboard extends uvm_scoreboard;
     "axil_vif",vif) ) `uvm_fatal(get_type_name(),"could not get vif!")
 
     // Create reference model instance
-    ref_model = uart_ref_model::type_id::create("ref_model", this);
+    m_ref = ref_model::type_id::create("m_ref", this);
 
     // Create analysis imps
     uart_tx_imp = new("uart_tx_imp", this);
@@ -47,7 +47,7 @@ class scoreboard extends uvm_scoreboard;
   // UART monitor callback
   virtual function void write_uart_tx(uart_txn txn);
     byte expected_byte;
-    expected_byte = ref_model.pop_tx_fifo();
+    expected_byte = m_ref.pop_tx_fifo();
     if (expected_byte != txn.data)
     `uvm_error(get_type_name(), $sformatf("UART mismatch! DUT: 0x%2h, REF: 0x%2h", txn.data, expected_byte))
   endfunction
@@ -68,14 +68,14 @@ class scoreboard extends uvm_scoreboard;
     bit [1:0] expected_resp;
     case (txn.op)
       WRITE: begin
-        ref_model.write_register(txn.addr, txn.wdata, expected_resp);
+        m_ref.write_register(txn.addr, txn.wdata, expected_resp);
         // check proper resp
         if (txn.resp != expected_resp)
         `uvm_error(get_type_name(), $sformatf("AXI-Lite write mismatch! DUT: %2b, REF: %2b", txn.resp,expected_resp))
       end
       READ: begin
         // check proper resp and rdata
-        ref_model.read_register(txn.addr, expected_resp, expected_rdata);
+        m_ref.read_register(txn.addr, expected_resp, expected_rdata);
         if ((expected_rdata != txn.rdata) || (expected_resp != txn.resp))
         `uvm_error(get_type_name(), $sformatf("AXI-Lite read mismatch! DUT: addr: 0x%4h rdata: 0x%2h resp: %2b, REF: rdata: 0x%2h resp: %2b",
          txn.addr, txn.rdata, txn.resp, expected_rdata, expected_resp))
@@ -97,7 +97,7 @@ class scoreboard extends uvm_scoreboard;
       repeat (3) @(posedge vif.aclk);
 
       // now update reference model
-      ref_model.push_rx_fifo(t.data);
+      m_ref.push_rx_fifo(t.data);
     end
   endtask
 

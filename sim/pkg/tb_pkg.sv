@@ -6,7 +6,7 @@ package tb_pkg;
   import common_pkg::*;
   import dut_params_pkg::*;
 
-  
+  `include "ref_model.svh"
   `include "scoreboard.svh"
   `include "cov_collector.svh"
   `include "virtual_sequencer.svh"
@@ -15,6 +15,5 @@ package tb_pkg;
   `include "env.svh"
   `include "test_base.svh"
   `include "my_test.svh"
-  
-  
+
 endpackage : tb_pkg

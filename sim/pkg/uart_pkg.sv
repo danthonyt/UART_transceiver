@@ -10,7 +10,5 @@ package uart_pkg;
   typedef uvm_sequencer#(uart_txn) uart_sequencer;
   `include "uart_agent_config.svh"
   `include "uart_agent.svh"
-  `include "uart_ref_model.svh"
-  
 
 endpackage : uart_pkg

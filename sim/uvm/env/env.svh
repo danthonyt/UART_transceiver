@@ -26,6 +26,12 @@ class env extends uvm_env;
     // get env config from cdb
     if ( !uvm_config_db #(env_config)::get(this, "", "env_config",
         m_env_cfg ) ) `uvm_error(get_type_name(),"couldn't get env config!")
+    // get baud rate and clock frequency
+    if ( !uvm_config_db #(int)::get(this, "", "clk_freq",
+        m_env_cfg.m_uart_agent_cfg.clk_freq ) ) `uvm_error(get_type_name(),"couldn't get clock frequency!")
+    if ( !uvm_config_db #(int)::get(this, "", "baud_rate",
+        m_env_cfg.m_uart_agent_cfg.baud_rate ) ) `uvm_error(get_type_name(),"couldn't get baud rate!")
+
     // store agent configs in cdb
     uvm_config_db #(uart_agent_config)::set(this, "*", "uart_agent_config",
       m_env_cfg.m_uart_agent_cfg);
