@@ -17,9 +17,11 @@ module top_tb ();
 
   // Generate a reset pulse
   initial begin
+    `uvm_info("TOP", "Simulation started", UVM_DEBUG)
     rst_n = 0;
     #(CLK_PERIOD*5)
     rst_n = 1;  // release reset
+    `uvm_info("TOP", "RESET DEASSERTED", UVM_DEBUG)
   end
 
   uart_core # (

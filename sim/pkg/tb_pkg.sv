@@ -8,7 +8,7 @@ package tb_pkg;
 
   `include "ref_model.svh"
   `include "scoreboard.svh"
-  `include "cov_collector.svh"
+  //`include "cov_collector.svh"
   `include "virtual_sequencer.svh"
   `include "my_virtual_seq.svh"
   `include "env_config.svh"

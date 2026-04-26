@@ -37,6 +37,7 @@ class scoreboard extends uvm_scoreboard;
 
   // Build phase
   function void build_phase(uvm_phase phase);
+    `uvm_info(get_type_name(), "START OF BUILD PHASE", UVM_DEBUG)
     super.build_phase(phase);
     if( !uvm_config_db #( virtual axil_syscon_if)::get(this, "",
     "axil_vif",vif) ) `uvm_fatal(get_type_name(),"could not get vif!")
@@ -52,6 +53,7 @@ class scoreboard extends uvm_scoreboard;
     axil_b_imp     = new("axil_b_imp", this);
     axil_ar_imp     = new("axil_ar_imp", this);
     axil_r_imp     = new("axil_r_imp", this);
+    `uvm_info(get_type_name(), "END OF BUILD PHASE", UVM_DEBUG)
   endfunction
 
   // Connect phase
@@ -73,9 +75,9 @@ class scoreboard extends uvm_scoreboard;
     uart_txn txn_cpy;
 
     txn_cpy = uart_txn::type_id::create("txn_cpy");
-    txn_cpy.copy(txn); 
+    txn_cpy.copy(txn);
 
-    uart_txn_q.push_front(txn_cpy);
+    uart_txn_q.push_back(txn_cpy);
   endfunction
 
 
@@ -83,7 +85,7 @@ class scoreboard extends uvm_scoreboard;
     axil_aw_txn txn_cpy;
 
     txn_cpy = axil_aw_txn::type_id::create("txn_cpy");
-    txn_cpy.copy(txn); 
+    txn_cpy.copy(txn);
 
     aw_q.push_back(txn_cpy);
   endfunction
@@ -92,7 +94,7 @@ class scoreboard extends uvm_scoreboard;
     axil_w_txn txn_cpy;
 
     txn_cpy = axil_w_txn::type_id::create("txn_cpy");
-    txn_cpy.copy(txn); 
+    txn_cpy.copy(txn);
 
     w_q.push_back(txn_cpy);
   endfunction
@@ -101,7 +103,7 @@ class scoreboard extends uvm_scoreboard;
     axil_b_txn txn_cpy;
 
     txn_cpy = axil_b_txn::type_id::create("txn_cpy");
-    txn_cpy.copy(txn); 
+    txn_cpy.copy(txn);
 
     b_q.push_back(txn_cpy);
   endfunction
@@ -110,7 +112,7 @@ class scoreboard extends uvm_scoreboard;
     axil_ar_txn txn_cpy;
 
     txn_cpy = axil_ar_txn::type_id::create("txn_cpy");
-    txn_cpy.copy(txn); 
+    txn_cpy.copy(txn);
 
     ar_q.push_back(txn_cpy);
   endfunction
@@ -119,7 +121,7 @@ class scoreboard extends uvm_scoreboard;
     axil_r_txn txn_cpy;
 
     txn_cpy = axil_r_txn::type_id::create("txn_cpy");
-    txn_cpy.copy(txn); 
+    txn_cpy.copy(txn);
 
     r_q.push_back(txn_cpy);
   endfunction
@@ -127,11 +129,72 @@ class scoreboard extends uvm_scoreboard;
 
 
   virtual task run_phase(uvm_phase phase);
+    `uvm_info(get_type_name(), "START OF RUN PHASE", UVM_DEBUG)
+    fork
+      axil_write_check();
+      axil_read_check();
+      uart_check();
+    join_none
+    `uvm_info(get_type_name(), "END OF RUN PHASE", UVM_DEBUG)
+  endtask
+
+  task axil_write_check();
+    axil_req_s req_s;
+    axil_aw_txn aw_txn;
+    axil_w_txn w_txn;
+    axil_b_txn b_txn;
+    axil_resp_e expected_resp;
     forever begin
-      uart_txn t;
+      // as soon as aw and w handshake, update ref model if side effect
+      wait((aw_q.size() > 0) && (w_q.size() > 0));
+      aw_txn = aw_q.pop_front();
+      w_txn = w_q.pop_front();
+      req_s.addr = aw_txn.addr;
+      req_s.data = w_txn.wdata;
+      m_ref.write_register(req_s.addr,req_s.data,expected_resp);
+      // wait for resp txn
+      wait(b_q.size() > 0);
+      b_txn = b_q.pop_front();
+      req_s.resp = b_txn.resp;
+      // compare DUT to REF MODEL
+      if (req_s.resp != expected_resp) `uvm_error(get_type_name(), $sformatf("UNEXPECTED AXIL RESP - DUT RESP: %0s, EXPECTED RESP: %0s",
+            req_s.resp.name(), expected_resp.name()))
+    end
+  endtask
+
+
+  task axil_read_check();
+    axil_req_s req_s;
+    axil_ar_txn ar_txn;
+    axil_r_txn r_txn;
+    u32 expected_rdata;
+    axil_resp_e expected_resp;
+    forever begin
+      // as soon as ar and r handshake, update ref model if side effect
+      wait((ar_q.size() > 0) && (r_q.size() > 0));
+      ar_txn = ar_q.pop_front();
+      r_txn = r_q.pop_front();
+      req_s.addr = ar_txn.addr;
+      req_s.data = r_txn.rdata;
+      req_s.resp = r_txn.resp;
+      m_ref.read_register(req_s.addr,expected_resp,expected_rdata);
+      if ((req_s.resp != expected_resp) || (req_s.data != expected_rdata)) begin
+        `uvm_error(get_type_name(),
+          $sformatf(
+            "AXI-LITE MISMATCH:\n  DUT : resp=%0s data=0x%0h\n  REF : resp=%0s data=0x%0h",
+            req_s.resp.name(), req_s.data,
+            expected_resp.name(), expected_rdata
+          )
+  )
+      end
+    end
+  endtask
+  task uart_check();
+    uart_txn t;
+    forever begin
       wait(uart_txn_q.size() > 0);
 
-      t = uart_txn_q.pop_back();
+      t = uart_txn_q.pop_front();
 
       // consume time based on dut delay
       repeat (3) @(posedge vif.aclk);

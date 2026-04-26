@@ -11,7 +11,7 @@ package axil_pkg;
   `include "axil_write_req.svh"
   `include "axil_req_base.svh"
   `include "axil_read_req.svh"
-  typedef uvm_sequencer#(axil_seq_item) axil_sequencer;
+  typedef uvm_sequencer#(axil_req_base) axil_sequencer;
   `include "axil_sequence.svh"
   `include "axil_driver.svh"
   `include "axil_ar_mon.svh"

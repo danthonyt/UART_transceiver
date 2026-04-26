@@ -30,6 +30,7 @@ class axil_agent extends uvm_component;
   endfunction : new
 
   function void build_phase( uvm_phase phase );
+    `uvm_info(get_type_name(), "START OF BUILD PHASE", UVM_DEBUG)
     if( !uvm_config_db #( axil_agent_config )::get(this, "",
     "axil_agent_config",m_cfg) ) `uvm_fatal(get_type_name(),"could not get config!")
 
@@ -45,9 +46,11 @@ class axil_agent extends uvm_component;
       m_driver = axil_driver::type_id::create("m_driver", this);
       m_sequencer = axil_sequencer::type_id::create("m_sequencer", this);
     end
+    `uvm_info(get_type_name(), "END OF BUILD PHASE", UVM_DEBUG)
   endfunction: build_phase
 
   function void connect_phase(uvm_phase phase);
+    `uvm_info(get_type_name(), "START OF CONNECT PHASE", UVM_DEBUG)
     aw_ap = m_aw_mon.ap;
     w_ap = m_w_mon.ap;
     b_ap = m_b_mon.ap;
@@ -57,6 +60,7 @@ class axil_agent extends uvm_component;
     if(m_cfg.active == UVM_ACTIVE) begin
       m_driver.seq_item_port.connect(m_sequencer.seq_item_export);
     end
+    `uvm_info(get_type_name(), "END OF CONNECT PHASE", UVM_DEBUG)
   endfunction: connect_phase
 
 endclass : axil_agent

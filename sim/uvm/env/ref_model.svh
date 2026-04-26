@@ -24,7 +24,7 @@ class ref_model extends uvm_object;
 // Register read/write functions
 // -----------------------------
 
-  function void read_register(input u32 addr, output bit[1:0] resp, output u32 rdata);
+  function void read_register(input u32 addr, output axil_resp_e resp, output u32 rdata);
     bit [7:0] fifo_rdata;
     case (addr)
       32'h0 : begin
@@ -48,7 +48,7 @@ class ref_model extends uvm_object;
     endcase
   endfunction
 
-  function void write_register(input u32 addr, input u32 wdata, output bit[1:0] resp);
+  function void write_register(input u32 addr, input u32 wdata, output axil_resp_e resp);
     case (addr)
       32'h4 : begin // Control register
         resp = OKAY;
@@ -81,7 +81,7 @@ class ref_model extends uvm_object;
   function void reset_tx_fifo();
     // on reset save active tx byte if available
     if (tx_fifo.num > 0) begin
-      tx_fifo.try_get(inflight_tx);
+      void'(tx_fifo.try_get(inflight_tx));
       inflight_tx_valid = 1;
     end
     tx_fifo = new(FIFO_DEPTH); // clear TX FIFO

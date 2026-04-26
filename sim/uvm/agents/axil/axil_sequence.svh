@@ -3,6 +3,7 @@ class axil_sequence extends uvm_sequence #(axil_req_base);
 
    axil_read_req  r_txn;
    axil_write_req w_txn;
+   axil_req_base txn;
    int unsigned      n_times = 100;
 
    function new (string name = "axil_sequence");
@@ -23,17 +24,21 @@ class axil_sequence extends uvm_sequence #(axil_req_base);
 
          if (do_read) begin
             r_txn = axil_read_req::type_id::create("r_txn");
-
-            start_item(r_txn);
-            assert(r_txn.randomize());
-            finish_item(r_txn);
+            txn = r_txn;
+            `uvm_info(get_type_name(),"BEFORE GET START ITEM",UVM_DEBUG)
+            start_item(txn);
+            assert(txn.randomize());
+            finish_item(txn);
+            `uvm_info(get_type_name(),"AFTER FINISH ITEM",UVM_DEBUG)
          end
          else begin
             w_txn = axil_write_req::type_id::create("w_txn");
-
-            start_item(w_txn);
-            assert(w_txn.randomize());
-            finish_item(w_txn);
+            txn = w_txn;
+            `uvm_info(get_type_name(),"BEFORE GET START ITEM",UVM_DEBUG)
+            start_item(txn);
+            assert(txn.randomize());
+            finish_item(txn);
+            `uvm_info(get_type_name(),"AFTER FINISH ITEM",UVM_DEBUG)
          end
 
       end
