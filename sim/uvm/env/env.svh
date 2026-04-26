@@ -44,11 +44,18 @@ class env extends uvm_env;
     // Connect monitor analysis ports to the scoreboard subscribers
     m_uart_agent.tx_ap.connect(m_scoreboard.uart_tx_imp);
     m_uart_agent.rx_ap.connect(m_scoreboard.uart_rx_imp);
-    m_axil_agent.ap.connect(m_scoreboard.axil_imp);
+
+    m_axil_agent.aw_ap.connect(m_scoreboard.axil_aw_imp);
+    m_axil_agent.w_ap.connect(m_scoreboard.axil_w_imp);
+    m_axil_agent.b_ap.connect(m_scoreboard.axil_b_imp);
+    m_axil_agent.ar_ap.connect(m_scoreboard.axil_ar_imp);
+    m_axil_agent.r_ap.connect(m_scoreboard.axil_r_imp);
+
     if (m_env_cfg.has_functional_coverage) begin
       m_uart_agent.tx_ap.connect(m_coverage_collector.uart_tx_imp);
     m_uart_agent.rx_ap.connect(m_coverage_collector.uart_rx_imp);
-    m_axil_agent.ap.connect(m_coverage_collector.axil_imp);
+    // TODO ADD implementation for all axi lite channels
+    m_axil_agent.aw_ap.connect(m_coverage_collector.axil_imp);
     end
     m_virtual_sequencer.m_uart_seqr = m_uart_agent.m_sequencer;
     m_virtual_sequencer.m_axil_seqr = m_axil_agent.m_sequencer;

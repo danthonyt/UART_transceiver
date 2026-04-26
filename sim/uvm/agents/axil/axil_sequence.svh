@@ -1,7 +1,8 @@
-class axil_sequence extends uvm_sequence #(axil_seq_item);
+class axil_sequence extends uvm_sequence #(axil_req_base);
    `uvm_object_utils (axil_sequence)
 
-   axil_useful_seq_item  m_axil_seq;
+   axil_read_req  r_txn;
+   axil_write_req w_txn;
    int unsigned      n_times = 100;
 
    function new (string name = "axil_sequence");
@@ -15,12 +16,26 @@ class axil_sequence extends uvm_sequence #(axil_seq_item);
    endtask
 
    task body ();
-      m_axil_seq = axil_useful_seq_item::type_id::create ("m_axil_seq");
-
+      bit do_read;
       repeat (n_times) begin
-         start_item (m_axil_seq);
-         assert (m_axil_seq.randomize ());
-         finish_item (m_axil_seq);
+
+         do_read = $urandom_range(0,1);
+
+         if (do_read) begin
+            r_txn = axil_read_req::type_id::create("r_txn");
+
+            start_item(r_txn);
+            assert(r_txn.randomize());
+            finish_item(r_txn);
+         end
+         else begin
+            w_txn = axil_write_req::type_id::create("w_txn");
+
+            start_item(w_txn);
+            assert(w_txn.randomize());
+            finish_item(w_txn);
+         end
+
       end
    endtask
 

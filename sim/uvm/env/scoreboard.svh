@@ -5,18 +5,30 @@ class scoreboard extends uvm_scoreboard;
 
   `uvm_analysis_imp_decl(_uart_tx)
   `uvm_analysis_imp_decl(_uart_rx)
-  `uvm_analysis_imp_decl(_axil)
+  `uvm_analysis_imp_decl(_axil_aw)
+  `uvm_analysis_imp_decl(_axil_w)
+  `uvm_analysis_imp_decl(_axil_b)
+  `uvm_analysis_imp_decl(_axil_ar)
+  `uvm_analysis_imp_decl(_axil_r)
 
   // Reference model
   ref_model m_ref;
   uart_txn uart_txn_q[$];
-  axil_result_txn axil_txn_q[$];
+  axil_aw_txn aw_q[$];
+  axil_w_txn w_q[$];
+  axil_b_txn b_q[$];
+  axil_ar_txn ar_q[$];
+  axil_r_txn r_q[$];
   virtual axil_syscon_if vif;
 
   // Analysis ports / imps
   uvm_analysis_imp_uart_tx#(uart_txn, scoreboard) uart_tx_imp;
   uvm_analysis_imp_uart_rx#(uart_txn, scoreboard) uart_rx_imp;
-  uvm_analysis_imp_axil#(axil_result_txn, scoreboard) axil_imp;
+  uvm_analysis_imp_axil_aw#(axil_aw_txn, scoreboard) axil_aw_imp;
+  uvm_analysis_imp_axil_w#(axil_w_txn, scoreboard) axil_w_imp;
+  uvm_analysis_imp_axil_b#(axil_b_txn, scoreboard) axil_b_imp;
+  uvm_analysis_imp_axil_ar#(axil_ar_txn, scoreboard) axil_ar_imp;
+  uvm_analysis_imp_axil_r#(axil_r_txn, scoreboard) axil_r_imp;
 
   // Constructor
   function new(string name = "scoreboard", uvm_component parent = null);
@@ -35,7 +47,11 @@ class scoreboard extends uvm_scoreboard;
     // Create analysis imps
     uart_tx_imp = new("uart_tx_imp", this);
     uart_rx_imp = new("uart_rx_imp", this);
-    axil_imp     = new("axil_imp", this);
+    axil_aw_imp     = new("axil_aw_imp", this);
+    axil_w_imp     = new("axil_w_imp", this);
+    axil_b_imp     = new("axil_b_imp", this);
+    axil_ar_imp     = new("axil_ar_imp", this);
+    axil_r_imp     = new("axil_r_imp", this);
   endfunction
 
   // Connect phase
@@ -62,29 +78,53 @@ class scoreboard extends uvm_scoreboard;
     uart_txn_q.push_front(txn_cpy);
   endfunction
 
-  // AXI-Lite callback
-  virtual function void write_axil(axil_result_txn txn);
-    u32 expected_rdata;
-    bit [1:0] expected_resp;
-    case (txn.op)
-      WRITE: begin
-        m_ref.write_register(txn.addr, txn.wdata, expected_resp);
-        // check proper resp
-        if (txn.resp != expected_resp)
-        `uvm_error(get_type_name(), $sformatf("AXI-Lite write mismatch! DUT: %2b, REF: %2b", txn.resp,expected_resp))
-      end
-      READ: begin
-        // check proper resp and rdata
-        m_ref.read_register(txn.addr, expected_resp, expected_rdata);
-        if ((expected_rdata != txn.rdata) || (expected_resp != txn.resp))
-        `uvm_error(get_type_name(), $sformatf("AXI-Lite read mismatch! DUT: addr: 0x%4h rdata: 0x%2h resp: %2b, REF: rdata: 0x%2h resp: %2b",
-         txn.addr, txn.rdata, txn.resp, expected_rdata, expected_resp))
-      end
-      default: begin
-        `uvm_fatal(get_type_name(), "Axi-Lite unknown operation!")
-      end
-    endcase
+
+  virtual function void write_axil_aw(axil_aw_txn txn);
+    axil_aw_txn txn_cpy;
+
+    txn_cpy = axil_aw_txn::type_id::create("txn_cpy");
+    txn_cpy.copy(txn); 
+
+    aw_q.push_back(txn_cpy);
   endfunction
+
+  virtual function void write_axil_w(axil_w_txn txn);
+    axil_w_txn txn_cpy;
+
+    txn_cpy = axil_w_txn::type_id::create("txn_cpy");
+    txn_cpy.copy(txn); 
+
+    w_q.push_back(txn_cpy);
+  endfunction
+
+  virtual function void write_axil_b(axil_b_txn txn);
+    axil_b_txn txn_cpy;
+
+    txn_cpy = axil_b_txn::type_id::create("txn_cpy");
+    txn_cpy.copy(txn); 
+
+    b_q.push_back(txn_cpy);
+  endfunction
+
+  virtual function void write_axil_ar(axil_ar_txn txn);
+    axil_ar_txn txn_cpy;
+
+    txn_cpy = axil_ar_txn::type_id::create("txn_cpy");
+    txn_cpy.copy(txn); 
+
+    ar_q.push_back(txn_cpy);
+  endfunction
+
+  virtual function void write_axil_r(axil_r_txn txn);
+    axil_r_txn txn_cpy;
+
+    txn_cpy = axil_r_txn::type_id::create("txn_cpy");
+    txn_cpy.copy(txn); 
+
+    r_q.push_back(txn_cpy);
+  endfunction
+
+
 
   virtual task run_phase(uvm_phase phase);
     forever begin

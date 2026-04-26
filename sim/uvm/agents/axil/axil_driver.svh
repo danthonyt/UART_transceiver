@@ -1,4 +1,4 @@
-class axil_driver extends uvm_driver #(axil_seq_item);
+class axil_driver extends uvm_driver #(axil_req_base);
   `uvm_component_utils(axil_driver);
 
   virtual axil_syscon_if vif;
@@ -10,16 +10,25 @@ class axil_driver extends uvm_driver #(axil_seq_item);
   endfunction : new
 
   function void build_phase(uvm_phase phase);
-      if( !uvm_config_db #( axil_agent_config )::get(this, "",
-        "axil_agent_config",m_config) ) `uvm_fatal(get_type_name(),"could not get config!")
+    if( !uvm_config_db #( axil_agent_config )::get(this, "",
+    "axil_agent_config",m_config) ) `uvm_fatal(get_type_name(),"could not get config!")
     vif = m_config.vif;
   endfunction : build_phase
 
   task run_phase(uvm_phase phase);
-    axil_seq_item item;
+    axil_req_base item;
+    axil_write_req w_item;
+    axil_read_req r_item;
     forever begin
       seq_item_port.get_next_item (item);
-      drive_item(item);
+      if ($cast(r_item, item)) begin
+        // it's a READ
+        drive_read_req(r_item);
+      end
+      else if ($cast(w_item, item)) begin
+        // it's a WRITE
+        drive_write_req(w_item);
+      end
       seq_item_port.item_done ();
     end
 
@@ -27,71 +36,66 @@ class axil_driver extends uvm_driver #(axil_seq_item);
 
   // Main BFM task
   // runs once per sequence item
-  task drive_item(axil_seq_item item);
+  task drive_read_req(axil_read_req item);
+    init_axil_signals();
+    @(posedge vif.aclk iff (vif.aresetn == 1));
+
+    @(negedge vif.aclk);
+    vif.araddr_i <= item.addr;
+    vif.arvalid_i <= 1;
+
+    // read address handshake
+    @(posedge vif.aclk iff (vif.arvalid_i && vif.arready_o ))
+    @(negedge vif.aclk);
+    vif.arvalid_i <= 0;
+    vif.rready_i <= 1;
+
+    // read data handshake
+    @(posedge vif.aclk iff (vif.rvalid_o && vif.rready_i ))
+    @(negedge vif.aclk);
+    vif.rready_i <= 0;
+  endtask
+
+  task drive_write_req(axil_write_req item);
     init_axil_signals();
     // delay until reset is released
-    wait (vif.aresetn == 1);
+    @(posedge vif.aclk iff (vif.aresetn == 1));
 
-    // Write or Read operation?
-    // read operation
-    if (item.op == READ) begin
-      @(negedge vif.aclk)
-        vif.araddr_i = item.addr;
-      vif.arvalid_i = 1;
-      // read address handshake
-      wait(vif.arready_o);
-      @(posedge vif.aclk);
-      @(negedge vif.aclk);
-      vif.arvalid_i = 0;
-      vif.rready_i = 1;
-      // read data handshake
-      wait(vif.rvalid_o);
-      @(posedge vif.aclk);
-      @(negedge vif.aclk);
-      vif.rready_i = 0;
+    @(negedge vif.aclk);
+    vif.awaddr_i <= item.addr;
+    vif.awvalid_i <= 1;
 
-    end
-    // write operation
-    else if (item.op == WRITE) begin
-      @(negedge vif.aclk)
-        vif.awaddr_i = item.addr;
-      vif.awvalid_i = 1;
+    // write address handshake
+    @(posedge vif.aclk iff (vif.awvalid_i && vif.awready_o ));
+    @(negedge vif.aclk);
+    vif.awvalid_i <= 0;
+    vif.wvalid_i <= 1;
+    vif.wdata_i <= item.wdata;
 
-      // write address handshake
-      wait(vif.awready_o);
-      @(posedge vif.aclk);
-      @(negedge vif.aclk);
-      vif.awvalid_i = 0;
-      vif.wvalid_i = 1;
-      vif.wdata_i = item.wdata;
+    // write data handshake
+    @(posedge vif.aclk iff (vif.wvalid_i && vif.wready_o ));
+    @(negedge vif.aclk);
+    vif.wvalid_i <= 0;
+    vif.bready_i <= 1;
 
-      // write data handshake
-      wait(vif.wready_o);
-      @(posedge vif.aclk);
-      @(negedge vif.aclk);
-      vif.wvalid_i = 0;
-      vif.bready_i = 1;
-
-      // write response handshake
-      wait(vif.bvalid_o);
-      @(posedge vif.aclk);
-      @(negedge vif.aclk);
-      vif.bready_i = 0;
-    end
+    // write response handshake
+    @(posedge vif.aclk iff (vif.bvalid_o && vif.bready_i ));
+    @(negedge vif.aclk);
+    vif.bready_i <= 0;
   endtask
 
   task init_axil_signals();
     // Read address channel
-    vif.araddr_i  = '0;
-    vif.arvalid_i = 0;
-    vif.rready_i  = 0;
+    vif.araddr_i  <= '0;
+    vif.arvalid_i <= 0;
+    vif.rready_i  <= 0;
 
     // Write address channel
-    vif.awaddr_i  = '0;
-    vif.awvalid_i = 0;
-    vif.wdata_i   = '0;
-    vif.wvalid_i  = 0;
-    vif.bready_i  = 0;
+    vif.awaddr_i  <= '0;
+    vif.awvalid_i <= 0;
+    vif.wdata_i   <= '0;
+    vif.wvalid_i  <= 0;
+    vif.bready_i  <= 0;
   endtask
 
 

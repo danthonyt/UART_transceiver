@@ -1,8 +1,0 @@
-DUT Latencies
-- rx fifo
-    -rx txn -> N latency -> push to rx fifo
-    -axil read of rx fifo -> pull from rx fifo
-- tx fifo
-    -axil write txn to tx fifo -> push to tx fifo
-    -tx byte start bit seen -> pull from tx fifo -> tx txn
-
