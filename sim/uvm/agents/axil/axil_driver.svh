@@ -11,8 +11,6 @@ class axil_driver extends uvm_driver #(axil_req_base);
 
   function void build_phase(uvm_phase phase);
     `uvm_info(get_type_name(), "START OF BUILD PHASE", UVM_DEBUG)
-    if( !uvm_config_db #( axil_agent_config )::get(this, "",
-    "axil_agent_config",m_config) ) `uvm_fatal(get_type_name(),"could not get config!")
     vif = m_config.vif;
     `uvm_info(get_type_name(), "END OF BUILD PHASE", UVM_DEBUG)
   endfunction : build_phase

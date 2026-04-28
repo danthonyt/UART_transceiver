@@ -13,4 +13,10 @@ package common_pkg;
     u32 data;
     axil_resp_e resp;
   } axil_req_s;
+
+  typedef enum logic [1:0] {
+    FIFO_READ = 2'b00,
+    FIFO_WRITE = 2'b01,
+    FIFO_RESET = 2'b10
+  } fifo_ctrl_e;
 endpackage : common_pkg

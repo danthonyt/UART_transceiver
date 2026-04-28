@@ -3,6 +3,7 @@ package tb_pkg;
   `include "uvm_macros.svh"
   import axil_pkg::*;
   import uart_pkg::*;
+  import fifo_ctrl_pkg::*;
   import common_pkg::*;
   import dut_params_pkg::*;
 

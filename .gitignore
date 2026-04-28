@@ -6,7 +6,7 @@ sby_config/**
 *.jou
 *.log
 build/
-uart/
+
 
 
 # Only include top-level .sby files

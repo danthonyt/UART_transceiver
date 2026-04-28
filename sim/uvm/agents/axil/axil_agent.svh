@@ -32,18 +32,24 @@ class axil_agent extends uvm_component;
   function void build_phase( uvm_phase phase );
     `uvm_info(get_type_name(), "START OF BUILD PHASE", UVM_DEBUG)
     if( !uvm_config_db #( axil_agent_config )::get(this, "",
-    "axil_agent_config",m_cfg) ) `uvm_fatal(get_type_name(),"could not get config!")
+    "cfg",m_cfg) ) `uvm_fatal(get_type_name(),"could not get config!")
 
     // Monitor is always present
     m_aw_mon = axil_aw_mon::type_id::create("m_aw_mon", this);
+    m_aw_mon.m_cfg = m_cfg;
     m_w_mon = axil_w_mon::type_id::create("m_w_mon", this);
+    m_w_mon.m_cfg = m_cfg;
     m_b_mon = axil_b_mon::type_id::create("m_b_mon", this);
+    m_b_mon.m_cfg = m_cfg;
     m_ar_mon = axil_ar_mon::type_id::create("m_ar_mon", this);
+    m_ar_mon.m_cfg = m_cfg;
     m_r_mon = axil_r_mon::type_id::create("m_r_mon", this);
+    m_r_mon.m_cfg = m_cfg;
 
     // Only build the driver and sequencer if active
     if(m_cfg.active == UVM_ACTIVE) begin
       m_driver = axil_driver::type_id::create("m_driver", this);
+      m_driver.m_config = m_cfg;
       m_sequencer = axil_sequencer::type_id::create("m_sequencer", this);
     end
     `uvm_info(get_type_name(), "END OF BUILD PHASE", UVM_DEBUG)

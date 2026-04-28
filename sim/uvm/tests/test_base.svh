@@ -18,6 +18,8 @@ class test_base extends uvm_test;
   env_config        m_env_cfg ;
   uart_agent_config m_uart_cfg;
   axil_agent_config m_axil_cfg;
+  fifo_ctrl_agent_config m_tx_fifo_cfg;
+  fifo_ctrl_agent_config m_rx_fifo_cfg;
 
 //------------------------------------------
 // Methods
@@ -46,10 +48,22 @@ class test_base extends uvm_test;
     m_uart_cfg = uart_agent_config::type_id::create("m_uart_cfg");
     if ( !uvm_config_db #(virtual uart_syscon_if)::get(this, "", "uart_vif",
         m_uart_cfg.vif ) ) `uvm_error(get_type_name(),"couldn't get uart virtual interface!")
-
+    // get uart baud rate and clock frequency
+    m_uart_cfg.baud_rate = BAUD_RATE;
+    m_uart_cfg.clk_freq = CLK_FREQ;
     m_env_cfg.m_uart_agent_cfg = m_uart_cfg;
+// RX fifo configuration
+    m_rx_fifo_cfg = fifo_ctrl_agent_config::type_id::create("m_rx_fifo_cfg");
+    if ( !uvm_config_db #(virtual fifo_ctrl_if)::get(this, "", "rx_fifo_vif",
+        m_rx_fifo_cfg.vif ) ) `uvm_error(get_type_name(),"couldn't get rx fifo vif!")
+    m_env_cfg.m_rx_fifo_agent_cfg = m_rx_fifo_cfg;
+// TX fifo configuration
+    m_tx_fifo_cfg = fifo_ctrl_agent_config::type_id::create("m_tx_fifo_cfg");
+    if ( !uvm_config_db #(virtual fifo_ctrl_if)::get(this, "", "tx_fifo_vif",
+        m_tx_fifo_cfg.vif ) ) `uvm_error(get_type_name(),"couldn't get tx fifo vif!")
+    m_env_cfg.m_tx_fifo_agent_cfg = m_tx_fifo_cfg;
 
-    uvm_config_db #(env_config)::set(this, "*", "env_config",
+    uvm_config_db #(env_config)::set(this, "m_env", "cfg",
       m_env_cfg);
     m_env = env::type_id::create("m_env", this);
   endfunction: build_phase

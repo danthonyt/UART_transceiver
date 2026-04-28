@@ -10,10 +10,11 @@ class scoreboard extends uvm_scoreboard;
   `uvm_analysis_imp_decl(_axil_b)
   `uvm_analysis_imp_decl(_axil_ar)
   `uvm_analysis_imp_decl(_axil_r)
+  `uvm_analysis_imp_decl(_tx_fifo)
+  `uvm_analysis_imp_decl(_rx_fifo)
 
   // Reference model
   ref_model m_ref;
-  uart_txn uart_txn_q[$];
   axil_aw_txn aw_q[$];
   axil_w_txn w_q[$];
   axil_b_txn b_q[$];
@@ -29,6 +30,8 @@ class scoreboard extends uvm_scoreboard;
   uvm_analysis_imp_axil_b#(axil_b_txn, scoreboard) axil_b_imp;
   uvm_analysis_imp_axil_ar#(axil_ar_txn, scoreboard) axil_ar_imp;
   uvm_analysis_imp_axil_r#(axil_r_txn, scoreboard) axil_r_imp;
+  uvm_analysis_imp_tx_fifo#(fifo_ctrl_txn, scoreboard) tx_fifo_imp;
+  uvm_analysis_imp_rx_fifo#(fifo_ctrl_txn, scoreboard) rx_fifo_imp;
 
   // Constructor
   function new(string name = "scoreboard", uvm_component parent = null);
@@ -53,6 +56,8 @@ class scoreboard extends uvm_scoreboard;
     axil_b_imp     = new("axil_b_imp", this);
     axil_ar_imp     = new("axil_ar_imp", this);
     axil_r_imp     = new("axil_r_imp", this);
+    tx_fifo_imp     = new("tx_fifo_imp", this);
+    rx_fifo_imp     = new("rx_fifo_imp", this);
     `uvm_info(get_type_name(), "END OF BUILD PHASE", UVM_DEBUG)
   endfunction
 
@@ -62,22 +67,19 @@ class scoreboard extends uvm_scoreboard;
     // Nothing to connect inside scoreboard for now; monitors/drivers will call imp write directly
   endfunction
 
-  // UART monitor callback
   virtual function void write_uart_tx(uart_txn txn);
     byte expected_byte;
-    expected_byte = m_ref.pop_tx_fifo();
+    expected_byte = m_ref.get_enqueued_tx_data();
     if (expected_byte != txn.data)
     `uvm_error(get_type_name(), $sformatf("UART mismatch! DUT: 0x%2h, REF: 0x%2h", txn.data, expected_byte))
   endfunction
 
-  // UART driver callback
   virtual function void write_uart_rx(uart_txn txn);
     uart_txn txn_cpy;
 
     txn_cpy = uart_txn::type_id::create("txn_cpy");
     txn_cpy.copy(txn);
-
-    uart_txn_q.push_back(txn_cpy);
+    m_ref.enqueue_rx_data(txn.data);
   endfunction
 
 
@@ -126,16 +128,47 @@ class scoreboard extends uvm_scoreboard;
     r_q.push_back(txn_cpy);
   endfunction
 
+  virtual function void write_tx_fifo(fifo_ctrl_txn txn);
+    fifo_ctrl_txn txn_cpy;
+
+    txn_cpy = fifo_ctrl_txn::type_id::create("txn_cpy");
+    txn_cpy.copy(txn);
+
+    // data is popped from or pushed to the fifo
+    // we know what rdata or wdata is from the UART or AXIL transactions
+    // the only latency is the tx fifo pop, dont care else
+    case (txn_cpy.kind)
+      FIFO_READ: m_ref.pop_tx_fifo();
+      FIFO_WRITE: ;
+      FIFO_RESET: ;
+      default: `uvm_error(get_type_name(),"UNKNOWN FIFO OP!")
+    endcase
+  endfunction
+
+  virtual function void write_rx_fifo(fifo_ctrl_txn txn);
+    fifo_ctrl_txn txn_cpy;
+
+    txn_cpy = fifo_ctrl_txn::type_id::create("txn_cpy");
+    txn_cpy.copy(txn);
+
+    // data is popped from or pushed to the fifo
+    // we know what rdata or wdata is from the UART or AXIL transactions
+    // the only latency is the uart rx byte received leading to rx fifo push, don't care else
+    case (txn_cpy.kind)
+      FIFO_READ: ;
+      FIFO_WRITE: m_ref.push_rx_fifo();
+      FIFO_RESET: ;
+      default: `uvm_error(get_type_name(),"UNKNOWN FIFO OP!")
+    endcase
+  endfunction
+
 
 
   virtual task run_phase(uvm_phase phase);
-    `uvm_info(get_type_name(), "START OF RUN PHASE", UVM_DEBUG)
     fork
       axil_write_check();
       axil_read_check();
-      uart_check();
     join_none
-    `uvm_info(get_type_name(), "END OF RUN PHASE", UVM_DEBUG)
   endtask
 
   task axil_write_check();
@@ -157,7 +190,7 @@ class scoreboard extends uvm_scoreboard;
       b_txn = b_q.pop_front();
       req_s.resp = b_txn.resp;
       // compare DUT to REF MODEL
-      if (req_s.resp != expected_resp) `uvm_error(get_type_name(), $sformatf("UNEXPECTED AXIL RESP - DUT RESP: %0s, EXPECTED RESP: %0s",
+      if (req_s.resp != expected_resp) `uvm_error(get_type_name(), $sformatf("UNEXPECTED AXIL WRITE RESP - DUT RESP: %0s, EXPECTED RESP: %0s",
             req_s.resp.name(), expected_resp.name()))
     end
   endtask
@@ -181,26 +214,12 @@ class scoreboard extends uvm_scoreboard;
       if ((req_s.resp != expected_resp) || (req_s.data != expected_rdata)) begin
         `uvm_error(get_type_name(),
           $sformatf(
-            "AXI-LITE MISMATCH:\n  DUT : resp=%0s data=0x%0h\n  REF : resp=%0s data=0x%0h",
+            "AXI-LITE READ MISMATCH:\n  DUT : resp=%0s data=0x%0h\n  REF : resp=%0s data=0x%0h",
             req_s.resp.name(), req_s.data,
             expected_resp.name(), expected_rdata
           )
   )
       end
-    end
-  endtask
-  task uart_check();
-    uart_txn t;
-    forever begin
-      wait(uart_txn_q.size() > 0);
-
-      t = uart_txn_q.pop_front();
-
-      // consume time based on dut delay
-      repeat (3) @(posedge vif.aclk);
-
-      // now update reference model
-      m_ref.push_rx_fifo(t.data);
     end
   endtask
 

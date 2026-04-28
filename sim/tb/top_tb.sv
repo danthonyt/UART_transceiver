@@ -1,3 +1,4 @@
+`timescale 1ns/1ps
 module top_tb ();
 
   import uvm_pkg::*;
@@ -56,13 +57,31 @@ module top_tb ();
   axil_syscon_if axil_if(.aclk(clk), .aresetn(rst_n));
   // uart 
   uart_syscon_if uart_if (.clk(clk), .rst_n(rst_n));
+  // rx fifo
+  fifo_ctrl_if rx_fifo_if (
+    .clk(clk),
+    .rst(!rst_n)
+  );
+  // tx fifo
+  fifo_ctrl_if tx_fifo_if (
+    .clk(clk),
+    .rst(!rst_n)
+  );
+
+  assign rx_fifo_if.fifo_rst = uart_core_inst.rx_fifo_rst;
+  assign rx_fifo_if.ren = uart_core_inst.rx_fifo_ren;
+  assign rx_fifo_if.wen = uart_core_inst.rx_fifo_wen;
+  
+  assign tx_fifo_if.fifo_rst = uart_core_inst.tx_fifo_rst;
+  assign tx_fifo_if.ren = uart_core_inst.tx_fifo_ren;
+  assign tx_fifo_if.wen = uart_core_inst.tx_fifo_wen;
 
 
   initial begin
     uvm_config_db #(virtual axil_syscon_if)::set(null, "*", "axil_vif", axil_if);
     uvm_config_db #(virtual uart_syscon_if)::set(null, "*", "uart_vif", uart_if);
-    uvm_config_db #(int)::set(null, "*", "clk_freq", CLK_FREQ);
-    uvm_config_db #(int)::set(null, "*", "baud_rate", BAUD_RATE);
+    uvm_config_db #(virtual fifo_ctrl_if)::set(null, "*", "tx_fifo_vif", tx_fifo_if);
+    uvm_config_db #(virtual fifo_ctrl_if)::set(null, "*", "rx_fifo_vif", rx_fifo_if);
     run_test("test_base");
   end
 

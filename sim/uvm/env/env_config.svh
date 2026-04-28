@@ -17,6 +17,9 @@ class env_config extends uvm_object;
 // Configurations for the sub_components
   uart_agent_config m_uart_agent_cfg;
   axil_agent_config m_axil_agent_cfg;
+  fifo_ctrl_agent_config m_rx_fifo_agent_cfg;
+  fifo_ctrl_agent_config m_tx_fifo_agent_cfg;
+  
 //------------------------------------------
 // Methods
 //------------------------------------------
