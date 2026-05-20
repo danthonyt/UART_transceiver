@@ -19,7 +19,6 @@ module uart_rx #(parameter CLKS_PER_BIT = 87) (
   reg [2:0] state       ;
   reg       serial_rx_q ;
   reg       serial_rx_qq;
-  reg       busy        ;
   reg       done        ;
   // index of RX DATA
   // support up to 9 elements
