@@ -5,6 +5,7 @@ class axil_write_req extends axil_req_base;
     rand u32 wdata;
 
     // constrain reads to legal addresses
+    
     constraint addr_wdata_c {
         addr inside {32'h4, 32'hC};
 

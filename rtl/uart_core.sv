@@ -1,5 +1,5 @@
 
-module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16, CLKS_PER_BIT = 4) (
+module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16) (
   // global signals
   input logic         axi_aclk_i   ,
   input logic         axi_aresetn_i,
@@ -29,6 +29,10 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16, CLKS_PER_BIT = 4) 
   output logic        tx_o
 );
 
+  localparam bit [15:0] BAUD_CNT = 16'd54; // for 115200 baud rate and 100 MHz clock 
+  logic [15:0] baud_rate;
+  assign baud_rate = BAUD_CNT;
+  logic baud_tick;
   // tx uart signals
   logic  tx_start;
   logic tx_busy ;
@@ -44,7 +48,7 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16, CLKS_PER_BIT = 4) 
   logic [DATA_WIDTH-1:0] tx_fifo_rdata;
   logic                  tx_fifo_empty;
   logic                  tx_fifo_full ;
-  logic                  tx_fifo_rst  ;
+  logic tx_fifo_rstn;
   // rx fifo signals
   logic                   rx_fifo_wen  ;
   logic                   rx_fifo_ren  ;
@@ -52,16 +56,25 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16, CLKS_PER_BIT = 4) 
   logic [DATA_WIDTH-1:0] rx_fifo_rdata;
   logic                  rx_fifo_empty;
   logic                  rx_fifo_full ;
-  logic                  rx_fifo_rst  ;
+  logic rx_fifo_rstn;
 
+  logic local_tx_rstn;
+  logic local_rx_rstn;
   
-
+  assign local_tx_rstn = axi_aresetn_i && tx_fifo_rstn;
+  assign local_rx_rstn = axi_aresetn_i && rx_fifo_rstn;
 
   /******************************************/
   //
   //    MODULES
   //
   /******************************************/
+  baud_rate_gen #(.CNT_WIDTH(16)) baud_rate_gen_inst (
+    .clk(axi_aclk_i),
+    .rstn(axi_aresetn_i),
+    .baud_rate(baud_rate),
+    .tick(baud_tick)
+  );
 
   axil_fsm #(
     .DATA_WIDTH(DATA_WIDTH)
@@ -88,8 +101,8 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16, CLKS_PER_BIT = 4) 
     .tx_fifo_full(tx_fifo_full),
     .rx_fifo_empty(rx_fifo_empty),
     .rx_fifo_full(rx_fifo_full),
-    .tx_fifo_rst(tx_fifo_rst),
-    .rx_fifo_rst(rx_fifo_rst),
+    .tx_fifo_rstn(tx_fifo_rstn),
+    .rx_fifo_rstn(rx_fifo_rstn),
     .tx_fifo_wen(tx_fifo_wen),
     .tx_fifo_wdata(tx_fifo_wdata),
     .rx_fifo_ren(rx_fifo_ren),
@@ -103,10 +116,10 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16, CLKS_PER_BIT = 4) 
     .rstn(axi_aresetn_i),
     .tx_fifo_ren(tx_fifo_ren),
     .tx_fifo_empty(tx_fifo_empty),
-    .tx_fifo_rst(tx_fifo_rst),
+    .tx_fifo_rstn(tx_fifo_rstn),
     .rx_fifo_wen(rx_fifo_wen),
     .rx_fifo_full(rx_fifo_full),
-    .rx_fifo_rst(rx_fifo_rst),
+    .rx_fifo_rstn(rx_fifo_rstn),
     .rx_fifo_wdata(rx_fifo_wdata),
     .tx_busy(tx_busy),
     .rx_byte_valid(rx_byte_valid),
@@ -114,32 +127,34 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16, CLKS_PER_BIT = 4) 
     .tx_start(tx_start)
   );
 
-  uart_rx #(.CLKS_PER_BIT(CLKS_PER_BIT)) uart_rx_inst (
+  uart_rx uart_rx_inst (
     .clk_i      (axi_aclk_i   ),
     .rstn_i     (axi_aresetn_i),
     .rx_i       (rx_i         ),
     .busy_o     (rx_busy      ),
     .rx_msg_o   (rx_byte      ),
     .done_o     (rx_byte_valid),
-    .frame_err_o(rx_frame_err )
+    .frame_err_o(rx_frame_err ),
+    .baud16_en(baud_tick      )
   );
 
-  uart_tx #(.CLKS_PER_BIT(CLKS_PER_BIT)) uart_tx_inst (
+  uart_tx uart_tx_inst (
     .clk_i    (axi_aclk_i   ),
     .rstn_i   (axi_aresetn_i),
     .start_i  (tx_start     ),
     .tx_byte_i(tx_fifo_rdata),
     .tx_o     (tx_o         ),
     .busy_o   (tx_busy      ),
-    .done_o   (             )
+    .done_o   (             ),
+    .baud16_en(baud_tick      )
   );
 
   fifo #(
     .DEPTH (FIFO_DEPTH),
     .DWIDTH(DATA_WIDTH)
   ) tx_fifo_inst (
-    .rst_i  (~axi_aresetn_i || tx_fifo_rst),
-    .clk_i  (axi_aclk_i                   ),
+    .rstn  (local_tx_rstn),
+    .clk  (axi_aclk_i                   ),
     .wen_i  (tx_fifo_wen                  ),
     .ren_i  (tx_fifo_ren                  ),
     .wdata_i(tx_fifo_wdata                ),
@@ -152,8 +167,8 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16, CLKS_PER_BIT = 4) 
     .DEPTH (FIFO_DEPTH),
     .DWIDTH(DATA_WIDTH)
   ) rx_fifo_inst (
-    .rst_i  (~axi_aresetn_i || rx_fifo_rst),
-    .clk_i  (axi_aclk_i                   ),
+    .rstn  (local_rx_rstn),
+    .clk  (axi_aclk_i                   ),
     .wen_i  (rx_fifo_wen                  ),
     .ren_i  (rx_fifo_ren                  ),
     .wdata_i(rx_fifo_wdata                ),

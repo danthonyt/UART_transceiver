@@ -20,15 +20,14 @@ module top_tb ();
   initial begin
     `uvm_info("TOP", "Simulation started", UVM_DEBUG)
     rst_n = 0;
-    #(CLK_PERIOD*5)
+    #(CLK_PERIOD*100)
     rst_n = 1;  // release reset
     `uvm_info("TOP", "RESET DEASSERTED", UVM_DEBUG)
   end
 
   uart_core # (
     .DATA_WIDTH(DATA_WIDTH),
-    .FIFO_DEPTH(FIFO_DEPTH),
-    .CLKS_PER_BIT(CLKS_PER_BIT)
+    .FIFO_DEPTH(FIFO_DEPTH)
   )
   uart_core_inst (
     .axi_aclk_i(clk),
@@ -68,11 +67,11 @@ module top_tb ();
     .rst(!rst_n)
   );
 
-  assign rx_fifo_if.fifo_rst = uart_core_inst.rx_fifo_rst;
+  assign rx_fifo_if.fifo_rst = ~uart_core_inst.rx_fifo_rstn;
   assign rx_fifo_if.ren = uart_core_inst.rx_fifo_ren;
   assign rx_fifo_if.wen = uart_core_inst.rx_fifo_wen;
   
-  assign tx_fifo_if.fifo_rst = uart_core_inst.tx_fifo_rst;
+  assign tx_fifo_if.fifo_rst = ~uart_core_inst.tx_fifo_rstn;
   assign tx_fifo_if.ren = uart_core_inst.tx_fifo_ren;
   assign tx_fifo_if.wen = uart_core_inst.tx_fifo_wen;
 

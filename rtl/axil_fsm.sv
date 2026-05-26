@@ -38,15 +38,15 @@ module axil_fsm #(
     input logic rx_fifo_full ,
 
     // fifo reset control
-    output logic tx_fifo_rst  ,
-    output logic rx_fifo_rst  ,
+    output logic tx_fifo_rstn  ,
+    output logic rx_fifo_rstn  ,
 
     // tx fifo write control
     output logic        tx_fifo_wen  ,
     output logic [DATA_WIDTH-1:0]  tx_fifo_wdata ,
 
     // rx fifo read control
-    output logic        rx_fifo_ren , 
+    output logic        rx_fifo_ren ,
 
     // fifo read data
     input logic [DATA_WIDTH-1:0]  rx_fifo_rdata
@@ -134,8 +134,8 @@ module axil_fsm #(
     assign reg_rd     = ((raddr_q[3:0] == 4'h0) || (raddr_q[3:0] == 4'h4));
     assign reg_wr     = (wraddr_q[3:0] == 4'h4);
 
-    assign rx_fifo_rst = control_reg[0];
-    assign tx_fifo_rst = control_reg[1];
+    assign rx_fifo_rstn = ~control_reg[0];
+    assign tx_fifo_rstn = ~control_reg[1];
 
     assign ar_handshake = axi_arvalid_i & axi_arready_o;
     assign r_handshake  = axi_rvalid_o & axi_rready_i;
@@ -157,7 +157,6 @@ module axil_fsm #(
             axi_rvalid_o  <= 0;
             axi_rresp_o   <= RESP_ERR;
             axi_rdata_o   <= 0;
-            //
             rx_fifo_ren <= 0;
         end
         else begin
