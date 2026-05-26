@@ -15,7 +15,7 @@ localparam AWIDTH = $clog2(DEPTH);
 
   reg [DWIDTH-1:0] fifo[0:DEPTH-1];
 
-  always @(posedge clk_i) begin
+  always_ff @(posedge clk_i) begin
     if (rst_i) begin
       wptr <= 0;
     end else begin
@@ -26,7 +26,7 @@ localparam AWIDTH = $clog2(DEPTH);
     end
   end
 
-  always @(posedge clk_i) begin
+  always_ff @(posedge clk_i) begin
     if (rst_i) begin
       rptr    <= 0;
       rdata_o <= 0;

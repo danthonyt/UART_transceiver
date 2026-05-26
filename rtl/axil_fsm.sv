@@ -100,7 +100,7 @@ module axil_fsm #(
     logic  [31:0] reg_wdata  ;
     logic         reg_wen    ;
     logic  [31:0] status_reg ; // read only
-    logic  [31:0] control_reg; // write/read
+    logic  [31:0] control_reg,nxt_control_reg; // write/read
     logic        rx_fifo_rd ;
     logic        tx_fifo_wr ;
     logic        reg_rd     ;
@@ -118,22 +118,13 @@ module axil_fsm #(
     //
     /******************************************/
 
-
+    assign nxt_control_reg = (reg_wen && (wraddr_q[3:0] == 4'h4)) ? reg_wdata : control_reg & ~32'h3;
     // register write
     always_ff @(posedge axi_aclk_i) begin
         if (~axi_aresetn_i) begin
             control_reg <= 0;
         end else begin
-            // lower reset after one cycle
-            control_reg <= control_reg & ~32'h3;
-            if (reg_wen) begin
-                case (wraddr_q[3:0])
-                    4'h4 : begin
-                        control_reg <= reg_wdata;
-                    end
-                    default : ;
-                endcase
-            end
+            control_reg <= nxt_control_reg;
         end
     end
 

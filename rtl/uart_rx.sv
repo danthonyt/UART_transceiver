@@ -2,39 +2,39 @@
 // Example: 10 MHz Clock, 115200 baud uart
 // (10,000,000)/(115,200) = 87
 module uart_rx #(parameter CLKS_PER_BIT = 87) (
-  input        clk_i      ,
-  input        rstn_i      ,
-  input        rx_i       , // serial rx input
-  output       busy_o     , // uart rx in progress
+  input logic        clk_i      ,
+  input logic        rstn_i      ,
+  input logic        rx_i       , // serial rx input
+  output logic       busy_o     , // uart rx in progress
   // support maximum of 9 bits
-  output [7:0] rx_msg_o   , // Shifted byte from rx input
-  output       done_o     ,
-  output       frame_err_o // framing error when stop bit/s is not high
+  output logic [7:0] rx_msg_o   , // Shifted byte from rx input
+  output logic       done_o     ,
+  output logic       frame_err_o // framing error when stop bit/s is not high
 );
   localparam [2:0] IDLE_RX = 3'd0,
     START_RX = 3'd1,
     DATA_RX = 3'd2,
     STOP_RX = 3'd3;
 
-  reg [2:0] state       ;
-  reg       serial_rx_q ;
-  reg       serial_rx_qq;
-  reg       done        ;
+  logic [2:0] state       ;
+  logic       serial_rx_q ;
+  logic       serial_rx_qq;
+  logic       done        ;
   // index of RX DATA
   // support up to 9 elements
-  reg [3:0] index   ;
-  reg       stop_cnt;
+  logic [3:0] index   ;
+  logic       stop_cnt;
   // clock cycle count
-  reg  [$clog2(CLKS_PER_BIT)-1:0] baud_cnt      ;
-  reg  [                     7:0] rx_data       ;
-  wire                            baud_tick     ;
-  wire                            baud_tick_half;
-  wire                            index_done    ;
-  reg  [                     7:0] rx_msg        ;
-  reg                             frame_err     ;
+  logic  [$clog2(CLKS_PER_BIT)-1:0] baud_cnt      ;
+  logic  [                     7:0] rx_data       ;
+  logic                            baud_tick     ;
+  logic                            baud_tick_half;
+  logic                            index_done    ;
+  logic  [                     7:0] rx_msg        ;
+  logic                             frame_err     ;
 
 
-  always @(posedge clk_i) begin
+  always_ff @(posedge clk_i) begin
     if (~rstn_i) begin
       serial_rx_q  <= 1;
       serial_rx_qq <= 1;
@@ -44,7 +44,7 @@ module uart_rx #(parameter CLKS_PER_BIT = 87) (
     end
   end
 
-  always @(posedge clk_i) begin
+  always_ff @(posedge clk_i) begin
     if (~rstn_i) begin
       state     <= IDLE_RX;
       baud_cnt  <= 0;
@@ -109,6 +109,7 @@ module uart_rx #(parameter CLKS_PER_BIT = 87) (
             done      <= 1 ;
           end
         end
+        default : state <= IDLE_RX;
       endcase
     end
   end

@@ -5,13 +5,13 @@ module uart_tx #(
   // baud rate
   parameter CLKS_PER_BIT = 87
 ) (
-  input            clk_i    ,
-  input            rstn_i    ,
-  input            start_i  ,
-  input      [7:0] tx_byte_i,
-  output reg       tx_o     ,
-  output           busy_o   , // tx uart is busy
-  output reg       done_o
+  input logic            clk_i    ,
+  input logic            rstn_i    ,
+  input logic            start_i  ,
+  input logic      [7:0] tx_byte_i,
+  output logic       tx_o     ,
+  output logic       busy_o   , // tx uart is busy
+  output logic       done_o
 );
   // FSM states
   localparam [2:0] IDLE_TX = 3'd0,
@@ -19,19 +19,19 @@ module uart_tx #(
     DATA_TX = 3'd2,
     STOP_TX = 3'd3;
 
-  reg [2:0] state;
+  logic [2:0] state;
   // index of TX DATA
   // support up to 9 elements
-  reg [3:0] index;
+  logic [3:0] index;
   // clock cycle count
-  reg  [$clog2(CLKS_PER_BIT)-1:0] baud_cnt  ;
-  wire                            baud_tick ;
-  wire                            index_last;
-  reg  [                     7:0] tx_byte_q ;
+  logic  [$clog2(CLKS_PER_BIT)-1:0] baud_cnt  ;
+  logic                            baud_tick ;
+  logic                            index_last;
+  logic  [                     7:0] tx_byte_q ;
 
 
   // state register
-  always @(posedge clk_i) begin
+  always_ff @(posedge clk_i) begin
     if (~rstn_i) begin
       state     <= IDLE_TX;
       tx_o      <= 1;
@@ -84,6 +84,7 @@ module uart_tx #(
             done_o   <= 1;
           end
         end
+        default : state <= IDLE_TX;
       endcase
     end
 
