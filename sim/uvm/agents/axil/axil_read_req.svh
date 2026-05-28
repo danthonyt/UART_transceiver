@@ -5,7 +5,7 @@ class axil_read_req extends axil_req_base;
 
   // constrain writes to legal addresses
   constraint addr_wdata_c {
-    addr inside {32'h0, 32'h8};       // Only readable addresses
+    addr inside {32'h0, 32'h8, 32'h10};       // Only readable addresses
   }
 
   function void do_copy(uvm_object rhs);

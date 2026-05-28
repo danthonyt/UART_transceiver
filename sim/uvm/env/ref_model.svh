@@ -9,6 +9,7 @@ class ref_model extends uvm_object;
   bit inflight_tx_valid = 0;
   bit [7:0] inflight_rx;
   bit inflight_rx_valid = 0;
+  bit [31:0] baud_rate_reg = 54; // default value for 100MHz clock and 115200 baud rate
 
   // FIFO state
   localparam int FIFO_DEPTH = 16;
@@ -44,6 +45,10 @@ class ref_model extends uvm_object;
         end
         update_status();
       end
+      32'h10 : begin // Baud rate config register read
+        rdata = baud_rate_reg;
+        resp = OKAY;
+      end
       default : begin
         rdata = 0;
           resp = SLVERR;
@@ -65,6 +70,11 @@ class ref_model extends uvm_object;
           `uvm_info(get_type_name(),$sformatf("TX FIFO PUSH: %0h",wdata),UVM_MEDIUM)
           resp = OKAY;
         end
+      end
+      32'h10 : begin // Baud rate config register
+        // for simplicity we just accept the config write but don't model baud rate effects in ref model
+        resp = OKAY;
+        baud_rate_reg = wdata;
       end
       default : begin
         resp = SLVERR;

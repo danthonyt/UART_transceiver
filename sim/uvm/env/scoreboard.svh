@@ -33,6 +33,8 @@ class scoreboard extends uvm_scoreboard;
   uvm_analysis_imp_tx_fifo#(fifo_ctrl_txn, scoreboard) tx_fifo_imp;
   uvm_analysis_imp_rx_fifo#(fifo_ctrl_txn, scoreboard) rx_fifo_imp;
 
+  uvm_analysis_port #(axil_txn) ap;
+
   // Constructor
   function new(string name = "scoreboard", uvm_component parent = null);
     super.new(name, parent);
@@ -58,6 +60,7 @@ class scoreboard extends uvm_scoreboard;
     axil_r_imp     = new("axil_r_imp", this);
     tx_fifo_imp     = new("tx_fifo_imp", this);
     rx_fifo_imp     = new("rx_fifo_imp", this);
+    ap = new("ap", this);
     `uvm_info(get_type_name(), "END OF BUILD PHASE", UVM_DEBUG)
   endfunction
 
@@ -172,12 +175,13 @@ class scoreboard extends uvm_scoreboard;
   endtask
 
   task axil_write_check();
-    axil_req_s req_s;
+    axil_txn req_s;
     axil_aw_txn aw_txn;
     axil_w_txn w_txn;
     axil_b_txn b_txn;
     axil_resp_e expected_resp;
     forever begin
+      req_s = axil_txn::type_id::create("req_s");
       // as soon as aw and w handshake, update ref model if side effect
       wait((aw_q.size() > 0) && (w_q.size() > 0));
       aw_txn = aw_q.pop_front();
@@ -189,6 +193,8 @@ class scoreboard extends uvm_scoreboard;
       wait(b_q.size() > 0);
       b_txn = b_q.pop_front();
       req_s.resp = b_txn.resp;
+      // broadcast write request to baud_cfg_subscriber and other potential subscribers instead of just comparing resp here
+      ap.write(req_s);
       // compare DUT to REF MODEL
       if (req_s.resp != expected_resp) `uvm_error(get_type_name(), $sformatf("UNEXPECTED AXIL WRITE RESP - DUT RESP: %0s, EXPECTED RESP: %0s",
             req_s.resp.name(), expected_resp.name()))
@@ -197,12 +203,13 @@ class scoreboard extends uvm_scoreboard;
 
 
   task axil_read_check();
-    axil_req_s req_s;
+    axil_txn req_s;
     axil_ar_txn ar_txn;
     axil_r_txn r_txn;
     u32 expected_rdata;
     axil_resp_e expected_resp;
     forever begin
+      req_s = axil_txn::type_id::create("req_s");
       // as soon as ar and r handshake, update ref model if side effect
       wait((ar_q.size() > 0) && (r_q.size() > 0));
       ar_txn = ar_q.pop_front();

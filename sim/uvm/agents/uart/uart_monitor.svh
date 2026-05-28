@@ -47,9 +47,9 @@ class uart_monitor extends uvm_monitor;
   task monitor_tx();
     uart_txn tx_txn;
     int clks_per_bit;
-    clks_per_bit = m_config.get_clks_per_bit();
     forever @(posedge vif.clk) begin
       if (!vif.tx) begin
+        clks_per_bit = m_config.get_clks_per_bit();
         forever @(posedge vif.clk) begin
           // Wait for start bit (rx goes low)
           if (!vif.tx) begin
@@ -80,9 +80,9 @@ class uart_monitor extends uvm_monitor;
   task monitor_rx();
     uart_txn rx_txn;
     int clks_per_bit;
-    clks_per_bit = m_config.get_clks_per_bit();
     forever @(posedge vif.clk) begin
       if (!vif.rx) begin
+        clks_per_bit = m_config.get_clks_per_bit();
         forever @(posedge vif.clk) begin
           // Wait for start bit (rx goes low)
           if (!vif.rx) begin

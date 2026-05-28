@@ -7,6 +7,7 @@ class env extends uvm_env;
   fifo_ctrl_agent   m_tx_fifo_agent;
   scoreboard        m_scoreboard       ;
   virtual_sequencer m_virtual_sequencer;
+  baud_cfg_subscriber m_baud_cfg_subscriber;
   //cov_collector     m_coverage_collector;
 
   env_config m_env_cfg;
@@ -29,6 +30,8 @@ class env extends uvm_env;
     //m_coverage_collector = cov_collector::type_id::create("m_coverage_collector",this);
     m_virtual_sequencer = virtual_sequencer::type_id::create("m_virtual_sequencer", this);
 
+    m_baud_cfg_subscriber = baud_cfg_subscriber::type_id::create("m_baud_cfg_subscriber", this);
+
     // get env config from cdb
     if ( !uvm_config_db #(env_config)::get(this, "", "cfg",
         m_env_cfg ) ) `uvm_fatal(get_type_name(),"couldn't get env config!")
@@ -42,6 +45,9 @@ class env extends uvm_env;
       m_env_cfg.m_rx_fifo_agent_cfg);
     uvm_config_db #(fifo_ctrl_agent_config)::set(this, "m_tx_fifo_agent", "cfg",
       m_env_cfg.m_tx_fifo_agent_cfg);
+
+      uvm_config_db #(uart_agent_config)::set(this, "m_baud_cfg_subscriber", "cfg",
+      m_env_cfg.m_uart_agent_cfg);
  
     `uvm_info(get_type_name(), "END OF BUILD PHASE", UVM_DEBUG)
   endfunction
@@ -63,6 +69,8 @@ class env extends uvm_env;
 
     m_virtual_sequencer.m_uart_seqr = m_uart_agent.m_sequencer;
     m_virtual_sequencer.m_axil_seqr = m_axil_agent.m_sequencer;
+
+    m_scoreboard.ap.connect(m_baud_cfg_subscriber.analysis_export);
     `uvm_info(get_type_name(), "END OF CONNECT PHASE", UVM_DEBUG)
   endfunction
 

@@ -49,7 +49,10 @@ module axil_fsm #(
     output logic        rx_fifo_ren ,
 
     // fifo read data
-    input logic [DATA_WIDTH-1:0]  rx_fifo_rdata
+    input logic [DATA_WIDTH-1:0]  rx_fifo_rdata,
+
+    // baud rate register control
+    output logic [31:0] baud_reg
 
 );
 
@@ -100,6 +103,7 @@ module axil_fsm #(
     logic  [31:0] reg_wdata  ;
     logic         reg_wen    ;
     logic  [31:0] status_reg ; // read only
+    logic  [31:0] nxt_baud_reg; // write/read
     logic  [31:0] control_reg,nxt_control_reg; // write/read
     logic        rx_fifo_rd ;
     logic        tx_fifo_wr ;
@@ -107,10 +111,11 @@ module axil_fsm #(
     logic        reg_wr     ;
 
     // adresses:
-    // 32'h0 = status register
-    // 32'h4 = control register
-    // 32'h8 = rx fifo
-    // 32'hc = tx fifo
+    // 32'h0 = status register      ro
+    // 32'h4 = control register     rw
+    // 32'h8 = rx fifo              ro
+    // 32'hc = tx fifo              wo
+    // 32'h10 = baud rate register  rw
 
     /******************************************/
     //
@@ -118,21 +123,29 @@ module axil_fsm #(
     //
     /******************************************/
 
-    assign nxt_control_reg = (reg_wen && (wraddr_q[3:0] == 4'h4)) ? reg_wdata : control_reg & ~32'h3;
+    assign nxt_control_reg = (reg_wen && (wraddr_q == 32'h4)) ? reg_wdata : control_reg & ~32'h3;
+    assign nxt_baud_reg    = (reg_wen && (wraddr_q == 32'h10)) ? reg_wdata : baud_reg;
+
     // register write
     always_ff @(posedge axi_aclk_i) begin
         if (~axi_aresetn_i) begin
             control_reg <= 0;
+            baud_reg    <= 32'd54; // default baud rate 115200 with 100 MHz clock
         end else begin
             control_reg <= nxt_control_reg;
+            baud_reg <= nxt_baud_reg;
         end
     end
 
     assign status_reg = {28'd0, tx_fifo_empty, tx_fifo_full, rx_fifo_empty, rx_fifo_full};
-    assign rx_fifo_rd = (raddr_q[3:0] == 4'h8);
-    assign tx_fifo_wr = (wraddr_q[3:0] == 4'hc);
-    assign reg_rd     = ((raddr_q[3:0] == 4'h0) || (raddr_q[3:0] == 4'h4));
-    assign reg_wr     = (wraddr_q[3:0] == 4'h4);
+    assign rx_fifo_rd = (raddr_q == 32'h8);
+    assign tx_fifo_wr = (wraddr_q == 32'hc);
+
+    // assert reg_rd when addressing readable registers; 
+    assign reg_rd     = raddr_q inside {32'h0, 32'h4, 32'h10};
+
+    // assert reg_wr when addressing writable registers
+    assign reg_wr     = wraddr_q inside {32'h4, 32'h10};
 
     assign rx_fifo_rstn = ~control_reg[0];
     assign tx_fifo_rstn = ~control_reg[1];
@@ -179,9 +192,10 @@ module axil_fsm #(
                     // 1 cycle if a register read
                     // 3 cycles if a fifo read
                     if (reg_rd) begin
-                        case (raddr_q[3:0])
-                            4'h0    : axi_rdata_o <= status_reg;
-                            4'h4    : axi_rdata_o <= control_reg;
+                        case (raddr_q)
+                            32'h0    : axi_rdata_o <= status_reg;
+                            32'h4    : axi_rdata_o <= control_reg;
+                            32'h10   : axi_rdata_o <= baud_reg;
                             default : axi_rdata_o <= 0;
                         endcase
                         axi_rresp_o  <= RESP_OKAY;

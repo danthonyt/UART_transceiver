@@ -11,7 +11,7 @@ class uart_agent_config extends uvm_object;
   //------------------------------------------
 
   int clk_freq = 100000000;
-  int baud_rate = 0;
+  int baud_rate_div = 54;
   // Is the agent active or passive
   uvm_active_passive_enum active = UVM_ACTIVE;
 
@@ -28,10 +28,10 @@ class uart_agent_config extends uvm_object;
   endfunction
 
   function int get_clks_per_bit();
-    if (baud_rate == 0)
-      `uvm_fatal(get_type_name(), "baud_rate is 0")
+    if (baud_rate_div == 0)
+      `uvm_fatal(get_type_name(), "baud_rate_div is 0")
 
-    return clk_freq / baud_rate;
+    return clk_freq / baud_rate_div / 16; // assuming 16x oversampling
   endfunction
 
 endclass : uart_agent_config

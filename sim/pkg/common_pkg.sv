@@ -8,11 +8,6 @@ package common_pkg;
     SLVERR = 2'b10,
     DECERR = 2'b11
   } axil_resp_e;
-  typedef struct {
-    u32 addr;
-    u32 data;
-    axil_resp_e resp;
-  } axil_req_s;
 
   typedef enum logic [1:0] {
     FIFO_READ = 2'b00,

@@ -7,13 +7,16 @@ class axil_write_req extends axil_req_base;
     // constrain reads to legal addresses
     
     constraint addr_wdata_c {
-        addr inside {32'h4, 32'hC};
+        addr inside {32'h4, 32'hC, 32'h10};
 
         if (addr == 32'hC)
             wdata inside {[0:255]};
 
         if (addr == 32'h4)
             wdata[31:2] == 0;
+
+        if (addr == 32'h10)
+            wdata inside {[0:1000]};
     }
 
     function void do_copy(uvm_object rhs);

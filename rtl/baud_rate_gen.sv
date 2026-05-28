@@ -10,13 +10,17 @@ module baud_rate_gen#(
 // the baud rate input
 // for example, for 115200 baud rate and 100 MHz clock
 // baud_rate = 100*10^6 / (115200*16) = 54
+logic [CNT_WIDTH-1:0] baud_rate_shadow;
 logic [CNT_WIDTH-1:0] baud_cnt;
 always_ff @(posedge clk) begin
     if (!rstn) begin
         baud_cnt <= 32'd1;
+        baud_rate_shadow <= baud_rate;
         tick <= 0;
-    end else if (baud_cnt == baud_rate)begin
+    end else if (baud_cnt == baud_rate_shadow)begin
         baud_cnt <= 32'd1;
+        // only update baud_rate_shadow when we generate a tick to avoid timing issues
+        baud_rate_shadow <= baud_rate;
         tick <= 1;
     end else begin
         baud_cnt <= baud_cnt + 1;

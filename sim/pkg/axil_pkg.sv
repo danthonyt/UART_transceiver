@@ -19,6 +19,7 @@ package axil_pkg;
   `include "axil_aw_mon.svh"
   `include "axil_w_mon.svh"
   `include "axil_b_mon.svh"
+  `include "axil_txn.svh"
   
   
   `include "axil_agent_config.svh"

@@ -49,7 +49,7 @@ class test_base extends uvm_test;
     if ( !uvm_config_db #(virtual uart_syscon_if)::get(this, "", "uart_vif",
         m_uart_cfg.vif ) ) `uvm_error(get_type_name(),"couldn't get uart virtual interface!")
     // get uart baud rate and clock frequency
-    m_uart_cfg.baud_rate = BAUD_RATE;
+    // assume config defaults to the correct value for baud rate divisor 
     m_uart_cfg.clk_freq = CLK_FREQ;
     m_env_cfg.m_uart_agent_cfg = m_uart_cfg;
 // RX fifo configuration

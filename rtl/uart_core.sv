@@ -29,9 +29,7 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16) (
   output logic        tx_o
 );
 
-  localparam bit [15:0] BAUD_CNT = 16'd54; // for 115200 baud rate and 100 MHz clock 
-  logic [15:0] baud_rate;
-  assign baud_rate = BAUD_CNT;
+  logic [31:0] baud_rate;
   logic baud_tick;
   // tx uart signals
   logic  tx_start;
@@ -60,7 +58,7 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16) (
 
   logic local_tx_rstn;
   logic local_rx_rstn;
-  
+
   assign local_tx_rstn = axi_aresetn_i && tx_fifo_rstn;
   assign local_rx_rstn = axi_aresetn_i && rx_fifo_rstn;
 
@@ -69,7 +67,7 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16) (
   //    MODULES
   //
   /******************************************/
-  baud_rate_gen #(.CNT_WIDTH(16)) baud_rate_gen_inst (
+  baud_rate_gen #(.CNT_WIDTH($size(baud_rate))) baud_rate_gen_inst (
     .clk(axi_aclk_i),
     .rstn(axi_aresetn_i),
     .baud_rate(baud_rate),
@@ -106,7 +104,8 @@ module uart_core #(parameter DATA_WIDTH = 8, FIFO_DEPTH = 16) (
     .tx_fifo_wen(tx_fifo_wen),
     .tx_fifo_wdata(tx_fifo_wdata),
     .rx_fifo_ren(rx_fifo_ren),
-    .rx_fifo_rdata(rx_fifo_rdata)
+    .rx_fifo_rdata(rx_fifo_rdata),
+    .baud_reg(baud_rate)
   );
 
   fifo_ctrl_fsm #(
